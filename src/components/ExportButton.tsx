@@ -88,7 +88,7 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
           pdf.roundedRect(x + 1, y, cellWidth - 2, cellHeight - 2, 2, 2, 'F');
           pdf.setTextColor(255, 255, 255);
         } else if (isFriday) {
-          pdf.setFillColor(212, 175, 55, 0.2);
+          pdf.setFillColor(252, 248, 230);
           pdf.roundedRect(x + 1, y, cellWidth - 2, cellHeight - 2, 2, 2, 'F');
           pdf.setTextColor(26, 71, 55);
         } else {
