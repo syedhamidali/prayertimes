@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { CalendarHeader } from '@/components/CalendarHeader';
 import { CalendarGrid } from '@/components/CalendarGrid';
 import { MethodSelector } from '@/components/MethodSelector';
 import { YearSelector } from '@/components/YearSelector';
 import { ExportButton } from '@/components/ExportButton';
-import { getCurrentHijriDate, CalculationMethod, formatHijriDate } from '@/lib/hijriUtils';
+import { PrayerTimesCard } from '@/components/PrayerTimesCard';
+import { getCurrentHijriDate, CalculationMethod, formatHijriDate, hijriToGregorian } from '@/lib/hijriUtils';
 import { Moon } from 'lucide-react';
 
 const Index = () => {
@@ -19,6 +20,11 @@ const Index = () => {
     setHijriYear(current.year);
     setHijriMonth(current.month);
   }, []);
+
+  // Get the first day of the currently selected Hijri month as Gregorian date
+  const selectedDate = useMemo(() => {
+    return hijriToGregorian(hijriYear, hijriMonth, 1, method);
+  }, [hijriYear, hijriMonth, method]);
 
   const handlePrevMonth = () => {
     if (hijriMonth === 1) {
@@ -59,7 +65,7 @@ const Index = () => {
             <Moon className="h-8 w-8 text-gold" />
           </div>
           <p className="text-primary-foreground/80 text-lg animate-fade-in" style={{ animationDelay: '0.1s' }}>
-            Islamic Calendar Generator with Multiple Calculation Methods
+            Islamic Calendar Generator with Prayer Times
           </p>
           <div className="mt-4 text-gold font-display text-xl animate-fade-in" style={{ animationDelay: '0.2s' }}>
             Today: {formatHijriDate(currentHijri.year, currentHijri.month, currentHijri.day)}
@@ -90,44 +96,51 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Calendar */}
-        <div ref={calendarRef} className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <CalendarHeader
-            hijriYear={hijriYear}
-            hijriMonth={hijriMonth}
-            onPrevMonth={handlePrevMonth}
-            onNextMonth={handleNextMonth}
-            onToday={handleToday}
-          />
-          <CalendarGrid
-            hijriYear={hijriYear}
-            hijriMonth={hijriMonth}
-            method={method}
-          />
-        </div>
+        {/* Two column layout for calendar and prayer times */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Calendar - takes 2 columns on large screens */}
+          <div className="lg:col-span-2">
+            <div ref={calendarRef} className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+              <CalendarHeader
+                hijriYear={hijriYear}
+                hijriMonth={hijriMonth}
+                onPrevMonth={handlePrevMonth}
+                onNextMonth={handleNextMonth}
+                onToday={handleToday}
+              />
+              <CalendarGrid
+                hijriYear={hijriYear}
+                hijriMonth={hijriMonth}
+                method={method}
+              />
+            </div>
+          </div>
 
-        {/* Info Section */}
-        <div className="mt-8 bg-card rounded-2xl shadow-card p-6 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <h3 className="font-display text-xl font-bold text-primary mb-3">
-            About Calculation Methods
-          </h3>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            Different Islamic schools of jurisprudence and regions may use slightly different methods 
-            for determining the start of each lunar month. The Umm al-Qura calendar is the official 
-            calendar used in Saudi Arabia, while other methods are based on traditional astronomical 
-            calculations used by different madhabs (schools of thought).
-          </p>
+          {/* Prayer Times - takes 1 column on large screens */}
+          <div className="lg:col-span-1">
+            <PrayerTimesCard method={method} selectedDate={selectedDate} />
+            
+            {/* Info Section */}
+            <div className="mt-6 bg-card rounded-2xl shadow-card p-6 animate-slide-up" style={{ animationDelay: '0.25s' }}>
+              <h3 className="font-display text-lg font-bold text-primary mb-3">
+                About Methods
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Different Islamic schools use slightly different methods for determining prayer times and lunar month calculations. Select the method that matches your school of jurisprudence.
+              </p>
+            </div>
+          </div>
         </div>
       </main>
 
       {/* Footer */}
       <footer className="bg-card border-t border-border py-6 mt-12">
         <div className="container max-w-5xl mx-auto px-4 text-center text-muted-foreground text-sm">
-          <p className="font-display">
+          <p className="font-display text-lg">
             بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
           </p>
           <p className="mt-2">
-            Hijri Calendar Generator • Export calendars as PDF
+            Hijri Calendar & Prayer Times • Export calendars as PDF
           </p>
         </div>
       </footer>
