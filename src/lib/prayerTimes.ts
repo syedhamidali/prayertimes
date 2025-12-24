@@ -174,80 +174,150 @@ export const PRAYER_METHODS: Record<PrayerMethod, {
 };
 
 // Group methods by category for UI
-export const PRAYER_METHOD_GROUPS = {
-  'Shia Methods': ['jafari', 'jafari-karachi', 'leva-qom', 'tehran'] as PrayerMethod[],
-  'Sunni Schools': ['shafi', 'hanafi', 'maliki', 'hanbali'] as PrayerMethod[],
-  'Regional/Organizational': ['mwl', 'isna', 'egypt', 'umm-al-qura', 'gulf', 'kuwait', 'qatar', 'singapore', 'france', 'turkey', 'russia'] as PrayerMethod[],
+export const PRAYER_METHOD_GROUPS: Record<string, PrayerMethod[]> = {
+  'Shia Methods': ['jafari', 'jafari-karachi', 'leva-qom', 'tehran'],
+  'Sunni Schools': ['shafi', 'hanafi', 'maliki', 'hanbali'],
+  'Regional/Organizational': [
+    'mwl',
+    'isna',
+    'egypt',
+    'umm-al-qura',
+    'gulf',
+    'kuwait',
+    'qatar',
+    'singapore',
+    'france',
+    'turkey',
+    'russia',
+  ],
 };
 
-// Convert degrees to radians
-const toRadians = (deg: number) => (deg * Math.PI) / 180;
-const toDegrees = (rad: number) => (rad * 180) / Math.PI;
-
-// Calculate timezone offset from longitude (approximate)
+// Calculate timezone offset from longitude (very approximate)
 export function getTimezoneFromLongitude(longitude: number): number {
-  return Math.round(longitude / 15);
+  // Round to nearest 0.5 hour
+  return Math.round((longitude / 15) * 2) / 2;
 }
 
-// Calculate sun declination and equation of time
-function sunPosition(jd: number): { declination: number; equation: number } {
-  const D = jd - 2451545.0;
-  const g = toRadians(357.529 + 0.98560028 * D);
-  const q = toRadians(280.459 + 0.98564736 * D);
-  const L = q + toRadians(1.915) * Math.sin(g) + toRadians(0.020) * Math.sin(2 * g);
-  const e = toRadians(23.439 - 0.00000036 * D);
-  
-  const declination = Math.asin(Math.sin(e) * Math.sin(L));
-  
-  // Right ascension
-  const RA = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L));
-  
-  // Equation of time (in hours)
-  const equation = (q - RA) / toRadians(15);
-  
-  return { declination: toDegrees(declination), equation: equation };
+// --- Solar & prayer time calculations (NOAA-based for accuracy) ---
+
+type SunCalc = {
+  declinationRad: number; // radians
+  equationOfTimeMin: number; // minutes
+};
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
 }
 
-// Calculate hour angle for a given sun angle below horizon
-function sunAngleTime(angle: number, declination: number, latitude: number, direction: 'ccw' | 'cw'): number {
-  const latRad = toRadians(latitude);
-  const declRad = toRadians(declination);
-  
-  const cosHA = (Math.sin(toRadians(-angle)) - Math.sin(latRad) * Math.sin(declRad)) / 
-                (Math.cos(latRad) * Math.cos(declRad));
-  
-  // Clamp to valid range
-  const clampedCosHA = Math.max(-1, Math.min(1, cosHA));
-  const HA = toDegrees(Math.acos(clampedCosHA)) / 15; // Convert to hours
-  
-  return direction === 'ccw' ? -HA : HA;
+// Julian Day at 0:00 UTC for the provided date (calendar day)
+function julianDayUTC(date: Date): number {
+  const y = date.getUTCFullYear();
+  const m = date.getUTCMonth() + 1;
+  const d = date.getUTCDate();
+
+  let yy = y;
+  let mm = m;
+  if (mm <= 2) {
+    yy -= 1;
+    mm += 12;
+  }
+
+  const A = Math.floor(yy / 100);
+  const B = 2 - A + Math.floor(A / 4);
+
+  return (
+    Math.floor(365.25 * (yy + 4716)) +
+    Math.floor(30.6001 * (mm + 1)) +
+    d +
+    B -
+    1524.5
+  );
 }
 
-// Calculate Asr time using shadow ratio
-function asrTime(factor: number, declination: number, latitude: number, midday: number): number {
-  const latRad = toRadians(latitude);
-  const declRad = toRadians(declination);
-  
-  // Sun altitude at noon
-  const noonAlt = 90 - Math.abs(latitude - declination);
-  
-  // Shadow ratio at Asr = factor + tan(90 - noonAlt) = factor + cot(noonAlt)
-  // Asr altitude = acot(factor + cot(noonAlt))
-  const noonAltRad = toRadians(noonAlt);
-  const cotNoon = 1 / Math.tan(noonAltRad);
-  const asrCot = factor + cotNoon;
-  const asrAltitude = toDegrees(Math.atan(1 / asrCot));
-  
-  // Calculate hour angle for this altitude
-  const sinAlt = Math.sin(toRadians(asrAltitude));
-  const cosHA = (sinAlt - Math.sin(latRad) * Math.sin(declRad)) / 
-                (Math.cos(latRad) * Math.cos(declRad));
-  
-  // Clamp and return
-  if (cosHA < -1 || cosHA > 1) return NaN;
-  const HA = toDegrees(Math.acos(cosHA)) / 15;
-  
-  return midday + HA;
+// NOAA solar calculations for declination + equation of time
+function solarPositionNOAA(date: Date): SunCalc {
+  const JD = julianDayUTC(date);
+  const T = (JD - 2451545.0) / 36525.0;
+
+  const L0 = (280.46646 + T * (36000.76983 + T * 0.0003032)) % 360; // deg
+  const M = 357.52911 + T * (35999.05029 - 0.0001537 * T); // deg
+  const e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T);
+
+  const Mrad = toRadians(M);
+  const C =
+    Math.sin(Mrad) * (1.914602 - T * (0.004817 + 0.000014 * T)) +
+    Math.sin(2 * Mrad) * (0.019993 - 0.000101 * T) +
+    Math.sin(3 * Mrad) * 0.000289;
+
+  const trueLong = L0 + C; // deg
+
+  const omega = 125.04 - 1934.136 * T;
+  const lambda = trueLong - 0.00569 - 0.00478 * Math.sin(toRadians(omega)); // deg
+
+  const epsilon0 =
+    23 +
+    (26 +
+      (21.448 - T * (46.815 + T * (0.00059 - T * 0.001813))) / 60) /
+      60;
+  const epsilon = epsilon0 + 0.00256 * Math.cos(toRadians(omega)); // deg
+
+  const epsilonRad = toRadians(epsilon);
+  const lambdaRad = toRadians(lambda);
+
+  const declinationRad = Math.asin(Math.sin(epsilonRad) * Math.sin(lambdaRad));
+
+  // Equation of time (minutes)
+  const y = Math.tan(epsilonRad / 2);
+  const y2 = y * y;
+  const L0rad = toRadians(L0);
+
+  const eqTimeRad =
+    y2 * Math.sin(2 * L0rad) -
+    2 * e * Math.sin(Mrad) +
+    4 * e * y2 * Math.sin(Mrad) * Math.cos(2 * L0rad) -
+    0.5 * y2 * y2 * Math.sin(4 * L0rad) -
+    1.25 * e * e * Math.sin(2 * Mrad);
+
+  const equationOfTimeMin = 4 * toDegrees(eqTimeRad); // deg*4 = minutes
+
+  return { declinationRad, equationOfTimeMin };
+}
+
+function hourAngleForAltitude(
+  altitudeDeg: number,
+  latitudeDeg: number,
+  declinationRad: number
+): number {
+  const latRad = toRadians(latitudeDeg);
+  const altRad = toRadians(altitudeDeg);
+
+  const cosH =
+    (Math.sin(altRad) - Math.sin(latRad) * Math.sin(declinationRad)) /
+    (Math.cos(latRad) * Math.cos(declinationRad));
+
+  // Return hour angle in degrees
+  return toDegrees(Math.acos(clamp(cosH, -1, 1)));
+}
+
+function fixHour(a: number): number {
+  return a - 24 * Math.floor(a / 24);
+}
+
+function formatTime(time: number): string {
+  if (isNaN(time)) return '--:--';
+
+  time = fixHour(time);
+  const hours = Math.floor(time);
+  const minutes = Math.round((time - hours) * 60);
+
+  let h = hours;
+  let m = minutes;
+  if (m === 60) {
+    m = 0;
+    h = (h + 1) % 24;
+  }
+
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 }
 
 // Calculate prayer times for a given date and location
@@ -258,50 +328,52 @@ export function calculatePrayerTimes(
 ): PrayerTimes {
   const { latitude, longitude } = location;
   const config = PRAYER_METHODS[method];
-  
-  // Use location's timezone or calculate from longitude
+
+  // Use location's timezone, otherwise fall back to a rough longitude-based estimate
+  // (accurate timezone-by-coordinates requires a timezone database).
   const timezone = location.timezone ?? getTimezoneFromLongitude(longitude);
-  
-  // Julian date calculation (at midnight local time)
-  const jd = julianDate(date);
-  
-  // Get sun position
-  const { declination, equation } = sunPosition(jd);
-  
-  // Calculate midday (Dhuhr) in local time
-  // Transit = 12 - equation of time - (longitude / 15) + timezone
-  const midday = 12 - equation - (longitude / 15) + timezone;
-  const dhuhr = midday;
-  
-  // Sunrise and Sunset (0.833 degrees for atmospheric refraction + sun radius)
-  const sunriseOffset = sunAngleTime(0.833, declination, latitude, 'ccw');
-  const sunsetOffset = sunAngleTime(0.833, declination, latitude, 'cw');
-  const sunrise = midday + sunriseOffset;
-  const sunset = midday + sunsetOffset;
-  
-  // Fajr (sun at fajrAngle below horizon, before sunrise)
-  const fajrOffset = sunAngleTime(config.fajrAngle, declination, latitude, 'ccw');
-  const fajr = midday + fajrOffset;
-  
-  // Asr (shadow length = factor * object height + noon shadow)
-  const asrFactor = config.asrFactor || 1;
-  const asr = asrTime(asrFactor, declination, latitude, midday);
-  
-  // Maghrib (sunset + optional adjustment)
-  const maghribMinutes = config.maghribMinutes || 0;
+
+  const { declinationRad, equationOfTimeMin } = solarPositionNOAA(date);
+
+  // Solar noon (local time, in hours)
+  const solarNoon = (720 - 4 * longitude - equationOfTimeMin + timezone * 60) / 60;
+
+  // Sunrise/Sunset: use standard refraction-corrected altitude -0.833°
+  const haSunriseDeg = hourAngleForAltitude(-0.833, latitude, declinationRad);
+  const sunrise = solarNoon - (haSunriseDeg * 4) / 60;
+  const sunset = solarNoon + (haSunriseDeg * 4) / 60;
+
+  // Fajr: sun altitude = -fajrAngle
+  const haFajrDeg = hourAngleForAltitude(-config.fajrAngle, latitude, declinationRad);
+  const fajr = solarNoon - (haFajrDeg * 4) / 60;
+
+  // Dhuhr
+  const dhuhr = solarNoon;
+
+  // Asr: altitude computed from shadow factor
+  const asrFactor = config.asrFactor ?? 1;
+  const latRad = toRadians(latitude);
+  const declDeg = toDegrees(declinationRad);
+  const angleRad = Math.atan(1 / (asrFactor + Math.tan(toRadians(Math.abs(latitude - declDeg)))));
+  const asrAltitudeDeg = toDegrees(angleRad);
+  const haAsrDeg = hourAngleForAltitude(asrAltitudeDeg, latitude, declinationRad);
+  const asr = solarNoon + (haAsrDeg * 4) / 60;
+
+  // Maghrib
+  const maghribMinutes = config.maghribMinutes ?? 0;
   const maghrib = sunset + maghribMinutes / 60;
-  
+
   // Isha
   let isha: number;
   if (config.ishaMinutes) {
     isha = maghrib + config.ishaMinutes / 60;
   } else if (config.ishaAngle) {
-    const ishaOffset = sunAngleTime(config.ishaAngle, declination, latitude, 'cw');
-    isha = midday + ishaOffset;
+    const haIshaDeg = hourAngleForAltitude(-config.ishaAngle, latitude, declinationRad);
+    isha = solarNoon + (haIshaDeg * 4) / 60;
   } else {
     isha = maghrib + 1.5;
   }
-  
+
   return {
     fajr: formatTime(fajr),
     sunrise: formatTime(sunrise),
@@ -312,47 +384,6 @@ export function calculatePrayerTimes(
   };
 }
 
-// Helper functions
-function julianDate(date: Date): number {
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  
-  let y = year;
-  let m = month;
-  
-  if (m <= 2) {
-    y -= 1;
-    m += 12;
-  }
-  
-  const A = Math.floor(y / 100);
-  const B = 2 - A + Math.floor(A / 4);
-  
-  return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + day + B - 1524.5;
-}
-
-function fixHour(a: number): number {
-  return a - 24 * Math.floor(a / 24);
-}
-
-function formatTime(time: number): string {
-  if (isNaN(time)) return '--:--';
-  
-  time = fixHour(time);
-  const hours = Math.floor(time);
-  const minutes = Math.round((time - hours) * 60);
-  
-  // Handle edge case where minutes round to 60
-  let h = hours;
-  let m = minutes;
-  if (m === 60) {
-    m = 0;
-    h = (h + 1) % 24;
-  }
-  
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-}
 
 // Format time to 12-hour format
 export function formatTime12h(time24: string): string {
