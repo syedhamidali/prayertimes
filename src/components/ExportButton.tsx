@@ -177,23 +177,23 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
       pdf.setTextColor(80, 80, 80);
       pdf.text(`Location: ${cityName}`, pdfWidth / 2, 22, { align: 'center' });
 
-      // Table settings
+      // Table settings - A4 landscape height is ~210mm, need to fit 30 rows + header + footer
       const tableMarginLeft = 10;
-      const tableTop = 30;
+      const tableTop = 28;
       const colWidths = [32, 28, 28, 28, 28, 28, 28, 28, 28]; // Gregorian, Hijri, Fajr, Sunrise, Dhuhr, Asr, Sunset, Maghrib, Isha
-      const rowHeight = 6;
+      const rowHeight = 5.2; // Reduced to fit 30 days
       const headers = ['Gregorian', 'Hijri', 'Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Sunset', 'Maghrib', 'Isha'];
 
       // Draw header row
       pdf.setFillColor(26, 71, 55);
-      pdf.rect(tableMarginLeft, tableTop, colWidths.reduce((a, b) => a + b, 0), rowHeight + 2, 'F');
+      pdf.rect(tableMarginLeft, tableTop, colWidths.reduce((a, b) => a + b, 0), rowHeight + 1, 'F');
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8);
+      pdf.setFontSize(7);
       pdf.setTextColor(255, 255, 255);
 
       let xPos = tableMarginLeft;
       headers.forEach((header, i) => {
-        pdf.text(header, xPos + colWidths[i] / 2, tableTop + 5, { align: 'center' });
+        pdf.text(header, xPos + colWidths[i] / 2, tableTop + 4, { align: 'center' });
         xPos += colWidths[i];
       });
 
@@ -215,10 +215,10 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
 
       // Draw data rows
       pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(7);
+      pdf.setFontSize(6.5);
 
       prayerTimesData.forEach((dayData, index) => {
-        const y = tableTop + rowHeight + 2 + index * rowHeight;
+        const y = tableTop + rowHeight + 1 + index * rowHeight;
         const isFriday = dayData.date.getDay() === 5;
 
         // Alternate row background
@@ -235,50 +235,47 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
 
         // Gregorian date
         const gregDate = `${dayData.date.getDate()} ${GREGORIAN_MONTHS[dayData.date.getMonth()].slice(0, 3)} ${dayData.date.getFullYear()}`;
-        pdf.text(gregDate, x + colWidths[0] / 2, y + 4.5, { align: 'center' });
+        pdf.text(gregDate, x + colWidths[0] / 2, y + 3.8, { align: 'center' });
         x += colWidths[0];
 
         // Hijri date
-        pdf.text(`${dayData.hijriDay} ${HIJRI_MONTHS[hijriMonth - 1].slice(0, 3)}`, x + colWidths[1] / 2, y + 4.5, { align: 'center' });
+        pdf.text(`${dayData.hijriDay} ${HIJRI_MONTHS[hijriMonth - 1].slice(0, 3)}`, x + colWidths[1] / 2, y + 3.8, { align: 'center' });
         x += colWidths[1];
 
         if (dayData.times) {
           // Fajr
-          pdf.text(to12Hour(dayData.times.fajr), x + colWidths[2] / 2, y + 4.5, { align: 'center' });
+          pdf.text(to12Hour(dayData.times.fajr), x + colWidths[2] / 2, y + 3.8, { align: 'center' });
           x += colWidths[2];
 
           // Sunrise
-          pdf.text(to12Hour(dayData.times.sunrise), x + colWidths[3] / 2, y + 4.5, { align: 'center' });
+          pdf.text(to12Hour(dayData.times.sunrise), x + colWidths[3] / 2, y + 3.8, { align: 'center' });
           x += colWidths[3];
 
           // Dhuhr
-          pdf.text(to12Hour(dayData.times.dhuhr), x + colWidths[4] / 2, y + 4.5, { align: 'center' });
+          pdf.text(to12Hour(dayData.times.dhuhr), x + colWidths[4] / 2, y + 3.8, { align: 'center' });
           x += colWidths[4];
 
           // Asr
-          pdf.text(to12Hour(dayData.times.asr), x + colWidths[5] / 2, y + 4.5, { align: 'center' });
+          pdf.text(to12Hour(dayData.times.asr), x + colWidths[5] / 2, y + 3.8, { align: 'center' });
           x += colWidths[5];
 
-          // Sunset (calculate from maghrib - a few mins typically)
-          pdf.text(to12Hour(dayData.times.maghrib), x + colWidths[6] / 2, y + 4.5, { align: 'center' });
+          // Sunset
+          pdf.text(to12Hour(dayData.times.maghrib), x + colWidths[6] / 2, y + 3.8, { align: 'center' });
           x += colWidths[6];
 
           // Maghrib
-          pdf.text(to12Hour(dayData.times.maghrib), x + colWidths[7] / 2, y + 4.5, { align: 'center' });
+          pdf.text(to12Hour(dayData.times.maghrib), x + colWidths[7] / 2, y + 3.8, { align: 'center' });
           x += colWidths[7];
 
           // Isha
-          pdf.text(to12Hour(dayData.times.isha), x + colWidths[8] / 2, y + 4.5, { align: 'center' });
+          pdf.text(to12Hour(dayData.times.isha), x + colWidths[8] / 2, y + 3.8, { align: 'center' });
         } else {
           pdf.setTextColor(150, 150, 150);
-          pdf.text('—', x + colWidths[2] / 2, y + 4.5, { align: 'center' });
+          pdf.text('—', x + colWidths[2] / 2, y + 3.8, { align: 'center' });
         }
       });
 
-      // Footer
-      pdf.setFontSize(8);
-      pdf.setTextColor(150, 150, 150);
-      pdf.text(`Generated on ${new Date().toLocaleDateString()}`, pdfWidth / 2, pdfHeight - 8, { align: 'center' });
+      // Footer removed from page 2 to avoid overlap with table
 
       const fileName = `hijri-calendar-${HIJRI_MONTHS[hijriMonth - 1].toLowerCase()}-${hijriYear}.pdf`;
       pdf.save(fileName);
