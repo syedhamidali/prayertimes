@@ -187,6 +187,7 @@ const Index = () => {
               hijriMonth={hijriMonth}
               method={method}
               prayerMethod={exportPrefs.method}
+              cityLabel={exportPrefs.cityLabel}
               userLocation={{
                 latitude: exportPrefs.location.latitude,
                 longitude: exportPrefs.location.longitude,

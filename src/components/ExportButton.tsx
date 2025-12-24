@@ -13,6 +13,7 @@ interface ExportButtonProps {
   method: CalculationMethod;
   userLocation?: { latitude: number; longitude: number; cityName: string };
   prayerMethod?: PrayerMethod;
+  cityLabel?: string;
 }
 
 // Convert 24h time to 12h format with AM/PM
@@ -56,7 +57,7 @@ async function getLocationInfo(providedLocation?: { latitude: number; longitude:
   return { latitude, longitude, cityName };
 }
 
-export function ExportButton({ hijriYear, hijriMonth, method, userLocation, prayerMethod }: ExportButtonProps) {
+export function ExportButton({ hijriYear, hijriMonth, method, userLocation, prayerMethod, cityLabel }: ExportButtonProps) {
   const [isExportingCalendar, setIsExportingCalendar] = useState(false);
   const [isExportingPrayer, setIsExportingPrayer] = useState(false);
 
@@ -67,7 +68,8 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
     try {
       const days = getMonthDays(hijriYear, hijriMonth, method);
       const methodLabel = CALCULATION_METHODS.find(m => m.value === method)?.label || method;
-      const { cityName } = await getLocationInfo(userLocation);
+      const { cityName: fallbackCity } = await getLocationInfo(userLocation);
+      const displayCity = cityLabel || fallbackCity;
 
       const pdf = new jsPDF({
         orientation: 'landscape',
@@ -92,7 +94,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
       // City name
       pdf.setFontSize(10);
       pdf.setTextColor(80, 80, 80);
-      pdf.text(`Location: ${cityName}`, pdfWidth / 2, 32, { align: 'center' });
+      pdf.text(`Location: ${displayCity}`, pdfWidth / 2, 32, { align: 'center' });
 
       // Gregorian span
       if (days.length > 0) {
@@ -170,10 +172,14 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
         }
       });
 
-      // Footer
-      pdf.setFontSize(8);
+      // Footer with credits
+      pdf.setFontSize(7);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('Prayer times data provided by AlAdhan API (aladhan.com)', pdfWidth / 2, pdfHeight - 14, { align: 'center' });
+      pdf.setTextColor(26, 71, 55);
+      pdf.textWithLink('syedha.com/prayertimes', pdfWidth / 2 - 12, pdfHeight - 9, { url: 'https://syedha.com/prayertimes' });
       pdf.setTextColor(150, 150, 150);
-      pdf.text(`Generated on ${new Date().toLocaleDateString()}`, pdfWidth / 2, pdfHeight - 8, { align: 'center' });
+      pdf.text(`Generated on ${new Date().toLocaleDateString()}`, pdfWidth / 2, pdfHeight - 4, { align: 'center' });
 
       const fileName = `hijri-calendar-${HIJRI_MONTHS[hijriMonth - 1].toLowerCase()}-${hijriYear}.pdf`;
       pdf.save(fileName);
@@ -197,7 +203,8 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
       const methodLabel = PRAYER_METHODS[prayerMethodToUse as PrayerMethod]?.name ??
         CALCULATION_METHODS.find(m => m.value === method)?.label ??
         String(prayerMethodToUse);
-      const { latitude, longitude, cityName } = await getLocationInfo(userLocation);
+      const { latitude, longitude, cityName: fallbackCity } = await getLocationInfo(userLocation);
+      const displayCity = cityLabel || fallbackCity;
 
       // Letter size portrait
       const pdf = new jsPDF({
@@ -219,7 +226,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(11);
       pdf.setTextColor(80, 80, 80);
-      pdf.text(`Location: ${cityName}`, pdfWidth / 2, 26, { align: 'center' });
+      pdf.text(`Location: ${displayCity}`, pdfWidth / 2, 26, { align: 'center' });
 
       pdf.setFontSize(9);
       pdf.setTextColor(100, 100, 100);
@@ -319,10 +326,14 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
         }
       });
 
-      // Footer
-      pdf.setFontSize(8);
+      // Footer with credits
+      pdf.setFontSize(7);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('Prayer times data provided by AlAdhan API (aladhan.com)', pdfWidth / 2, pdfHeight - 16, { align: 'center' });
+      pdf.setTextColor(26, 71, 55);
+      pdf.textWithLink('syedha.com/prayertimes', pdfWidth / 2 - 12, pdfHeight - 11, { url: 'https://syedha.com/prayertimes' });
       pdf.setTextColor(150, 150, 150);
-      pdf.text(`Generated on ${new Date().toLocaleDateString()}`, pdfWidth / 2, pdfHeight - 10, { align: 'center' });
+      pdf.text(`Generated on ${new Date().toLocaleDateString()}`, pdfWidth / 2, pdfHeight - 6, { align: 'center' });
 
       const fileName = `prayer-times-${HIJRI_MONTHS[hijriMonth - 1].toLowerCase()}-${hijriYear}.pdf`;
       pdf.save(fileName);
