@@ -1,6 +1,7 @@
 // Hijri date utilities and calculation methods
 
 export type CalculationMethod = 
+  | 'leva'
   | 'jafari' 
   | 'shafi' 
   | 'hanafi' 
@@ -10,6 +11,7 @@ export type CalculationMethod =
   | 'isna';
 
 export const CALCULATION_METHODS: { value: CalculationMethod; label: string; description: string }[] = [
+  { value: 'leva', label: 'Leva Institute, Qum', description: 'Shia Ithna-Ashari method from Qum' },
   { value: 'jafari', label: 'Jafari (Ithna Ashari)', description: 'Shia Ithna Ashari method' },
   { value: 'shafi', label: "Shafi'i", description: "Shafi'i school of jurisprudence" },
   { value: 'hanafi', label: 'Hanafi', description: 'Hanafi school of jurisprudence' },
@@ -59,6 +61,7 @@ export const WEEKDAYS_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thurs
 
 // Method adjustments for different calculation methods (in days)
 const METHOD_ADJUSTMENTS: Record<CalculationMethod, number> = {
+  'leva': 0,
   'jafari': 0,
   'shafi': 0,
   'hanafi': 0,
@@ -69,7 +72,7 @@ const METHOD_ADJUSTMENTS: Record<CalculationMethod, number> = {
 };
 
 // Convert Gregorian to Hijri
-export function gregorianToHijri(date: Date, method: CalculationMethod = 'shafi'): { year: number; month: number; day: number } {
+export function gregorianToHijri(date: Date, method: CalculationMethod = 'leva'): { year: number; month: number; day: number } {
   const adjustment = METHOD_ADJUSTMENTS[method];
   const adjustedDate = new Date(date);
   adjustedDate.setDate(adjustedDate.getDate() + adjustment);
@@ -79,7 +82,7 @@ export function gregorianToHijri(date: Date, method: CalculationMethod = 'shafi'
 }
 
 // Convert Hijri to Gregorian
-export function hijriToGregorian(year: number, month: number, day: number, method: CalculationMethod = 'shafi'): Date {
+export function hijriToGregorian(year: number, month: number, day: number, method: CalculationMethod = 'leva'): Date {
   const adjustment = METHOD_ADJUSTMENTS[method];
   const jd = hijriToJulian(year, month, day);
   const date = julianToGregorian(jd);
@@ -127,7 +130,7 @@ export function getMonthDays(hijriYear: number, hijriMonth: number, method: Calc
 }
 
 // Get current Hijri date
-export function getCurrentHijriDate(method: CalculationMethod = 'shafi'): { year: number; month: number; day: number } {
+export function getCurrentHijriDate(method: CalculationMethod = 'leva'): { year: number; month: number; day: number } {
   return gregorianToHijri(new Date(), method);
 }
 
