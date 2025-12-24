@@ -5,6 +5,7 @@ import { YearSelector } from '@/components/YearSelector';
 import { ExportButton } from '@/components/ExportButton';
 import { PrayerTimesCard } from '@/components/PrayerTimesCard';
 import { getCurrentHijriDate, CalculationMethod, formatHijriDate, hijriToGregorian } from '@/lib/hijriUtils';
+import type { Location as PrayerLocation, PrayerMethod } from '@/lib/prayerTimes';
 import { Moon, Star, MapPin } from 'lucide-react';
 
 interface LocationInfo {
@@ -20,6 +21,15 @@ const Index = () => {
   const [hijriYear, setHijriYear] = useState(1446);
   const [hijriMonth, setHijriMonth] = useState(6);
   const [location, setLocation] = useState<LocationInfo>({ loading: true });
+  const [exportPrefs, setExportPrefs] = useState<{
+    location: PrayerLocation;
+    cityLabel: string;
+    method: PrayerMethod;
+  }>({
+    location: { latitude: 21.4225, longitude: 39.8262, city: 'Mecca', timezone: 3 },
+    cityLabel: 'Mecca',
+    method: 'leva-qom',
+  });
 
   // Get location and initialize with current Hijri date
   useEffect(() => {
@@ -56,6 +66,8 @@ const Index = () => {
             setLocation({
               city: data.city,
               country: data.country_name,
+              latitude: typeof data.latitude === 'number' ? data.latitude : undefined,
+              longitude: typeof data.longitude === 'number' ? data.longitude : undefined,
               loading: false
             });
           } catch {
@@ -71,6 +83,8 @@ const Index = () => {
           setLocation({
             city: data.city,
             country: data.country_name,
+            latitude: typeof data.latitude === 'number' ? data.latitude : undefined,
+            longitude: typeof data.longitude === 'number' ? data.longitude : undefined,
             loading: false
           });
         })
@@ -172,11 +186,12 @@ const Index = () => {
               hijriYear={hijriYear}
               hijriMonth={hijriMonth}
               method={method}
-              userLocation={location.latitude && location.longitude ? {
-                latitude: location.latitude,
-                longitude: location.longitude,
-                cityName: location.city || 'Unknown'
-              } : undefined}
+              prayerMethod={exportPrefs.method}
+              userLocation={{
+                latitude: exportPrefs.location.latitude,
+                longitude: exportPrefs.location.longitude,
+                cityName: exportPrefs.cityLabel,
+              }}
             />
           </div>
         </div>
@@ -203,7 +218,7 @@ const Index = () => {
 
           {/* Prayer Times - takes 1 column on large screens */}
           <div className="lg:col-span-1 space-y-6">
-            <PrayerTimesCard selectedDate={selectedDate} />
+            <PrayerTimesCard selectedDate={selectedDate} onPreferencesChange={setExportPrefs} />
             
             {/* Info Section */}
             <div className="bg-gradient-to-br from-card via-card to-secondary/30 rounded-3xl shadow-card border border-border/50 p-6 animate-slide-up" style={{ animationDelay: '0.25s' }}>

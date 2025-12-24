@@ -5,12 +5,14 @@ import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import { HIJRI_MONTHS, CalculationMethod, CALCULATION_METHODS, getMonthDays, WEEKDAYS, GREGORIAN_MONTHS } from '@/lib/hijriUtils';
 import { fetchPrayerTimesFromAladhan } from '@/lib/aladhanApi';
+import { PRAYER_METHODS, type PrayerMethod } from '@/lib/prayerTimes';
 
 interface ExportButtonProps {
   hijriYear: number;
   hijriMonth: number;
   method: CalculationMethod;
   userLocation?: { latitude: number; longitude: number; cityName: string };
+  prayerMethod?: PrayerMethod;
 }
 
 // Convert 24h time to 12h format with AM/PM
@@ -54,7 +56,7 @@ async function getLocationInfo(providedLocation?: { latitude: number; longitude:
   return { latitude, longitude, cityName };
 }
 
-export function ExportButton({ hijriYear, hijriMonth, method, userLocation }: ExportButtonProps) {
+export function ExportButton({ hijriYear, hijriMonth, method, userLocation, prayerMethod }: ExportButtonProps) {
   const [isExportingCalendar, setIsExportingCalendar] = useState(false);
   const [isExportingPrayer, setIsExportingPrayer] = useState(false);
 
@@ -191,7 +193,10 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation }: Ex
 
     try {
       const days = getMonthDays(hijriYear, hijriMonth, method);
-      const methodLabel = CALCULATION_METHODS.find(m => m.value === method)?.label || method;
+      const prayerMethodToUse = prayerMethod ?? (method as any);
+      const methodLabel = PRAYER_METHODS[prayerMethodToUse as PrayerMethod]?.name ??
+        CALCULATION_METHODS.find(m => m.value === method)?.label ??
+        String(prayerMethodToUse);
       const { latitude, longitude, cityName } = await getLocationInfo(userLocation);
 
       // Letter size portrait
@@ -245,11 +250,11 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation }: Ex
 
       for (const day of days) {
         try {
-          const times = await fetchPrayerTimesFromAladhan({
-            date: day.gregorianDate,
-            location: { latitude, longitude },
-            method: method as any,
-          });
+            const times = await fetchPrayerTimesFromAladhan({
+              date: day.gregorianDate,
+              location: { latitude, longitude },
+              method: prayerMethodToUse as any,
+            });
           prayerTimesData.push({ date: day.gregorianDate, hijriDay: day.hijriDay, times });
         } catch {
           prayerTimesData.push({ date: day.gregorianDate, hijriDay: day.hijriDay, times: null });

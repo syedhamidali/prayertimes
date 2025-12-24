@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils';
 
 interface PrayerTimesCardProps {
   selectedDate: Date;
+  onPreferencesChange?: (prefs: { location: Location; cityLabel: string; method: PrayerMethod }) => void;
 }
 
 const PRAYER_INFO = [
@@ -49,7 +50,7 @@ const PRAYER_INFO = [
   { key: 'isha', name: 'Isha', arabic: 'العشاء', icon: Moon, gradient: 'from-purple-500/20 to-indigo-500/20' },
 ] as const;
 
-export function PrayerTimesCard({ selectedDate }: PrayerTimesCardProps) {
+export function PrayerTimesCard({ selectedDate, onPreferencesChange }: PrayerTimesCardProps) {
   const [location, setLocation] = useState<Location>({ latitude: 21.4225, longitude: 39.8262, city: 'Mecca', timezone: 3 });
   const [selectedCity, setSelectedCity] = useState<string>('Mecca');
   const [prayerMethod, setPrayerMethod] = useState<PrayerMethod>('shafi');
@@ -82,6 +83,15 @@ export function PrayerTimesCard({ selectedDate }: PrayerTimesCardProps) {
 
     detectLocation();
   }, []);
+
+  // Notify parent when preferences change (for PDF export, etc.)
+  useEffect(() => {
+    onPreferencesChange?.({
+      location,
+      cityLabel: selectedCity || location.city || `${location.latitude.toFixed(2)}°, ${location.longitude.toFixed(2)}°`,
+      method: prayerMethod,
+    });
+  }, [location, selectedCity, prayerMethod, onPreferencesChange]);
 
   // Fetch prayer times when location, date, or method changes
   useEffect(() => {
