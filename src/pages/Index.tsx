@@ -14,7 +14,7 @@ interface LocationInfo {
 }
 
 const Index = () => {
-  const method: CalculationMethod = 'shafi';
+  const method: CalculationMethod = 'leva';
   const [hijriYear, setHijriYear] = useState(1446);
   const [hijriMonth, setHijriMonth] = useState(6);
   const [location, setLocation] = useState<LocationInfo>({ loading: true });
