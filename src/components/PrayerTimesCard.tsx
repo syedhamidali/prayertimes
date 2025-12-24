@@ -53,6 +53,7 @@ const PRAYER_INFO = [
 export function PrayerTimesCard({ selectedDate, onPreferencesChange }: PrayerTimesCardProps) {
   const [location, setLocation] = useState<Location>({ latitude: 21.4225, longitude: 39.8262, city: 'Mecca', timezone: 3 });
   const [selectedCity, setSelectedCity] = useState<string>('Mecca');
+  const [resolvedCity, setResolvedCity] = useState<string>('');
   const [prayerMethod, setPrayerMethod] = useState<PrayerMethod>('shafi');
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -84,14 +85,54 @@ export function PrayerTimesCard({ selectedDate, onPreferencesChange }: PrayerTim
     detectLocation();
   }, []);
 
+  // Resolve a human-friendly city label for coordinates-only locations (map/manual/GPS)
+  useEffect(() => {
+    let cancelled = false;
+
+    // If a preset city is selected, we already have a label
+    if (selectedCity) {
+      setResolvedCity('');
+      return;
+    }
+
+    // If the location already carries a city name, use it
+    if (location?.city) {
+      setResolvedCity('');
+      return;
+    }
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${location.latitude}&longitude=${location.longitude}&localityLanguage=en`
+        );
+        const data = await res.json();
+        const name = data.city || data.locality || data.principalSubdivision || data.countryName;
+        if (!cancelled) setResolvedCity(typeof name === 'string' ? name : '');
+      } catch {
+        if (!cancelled) setResolvedCity('');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.latitude, location.longitude, location.city, selectedCity]);
+
   // Notify parent when preferences change (for PDF export, etc.)
   useEffect(() => {
+    const cityLabel =
+      selectedCity ||
+      location.city ||
+      resolvedCity ||
+      `${location.latitude.toFixed(2)}°, ${location.longitude.toFixed(2)}°`;
+
     onPreferencesChange?.({
       location,
-      cityLabel: selectedCity || location.city || `${location.latitude.toFixed(2)}°, ${location.longitude.toFixed(2)}°`,
+      cityLabel,
       method: prayerMethod,
     });
-  }, [location, selectedCity, prayerMethod, onPreferencesChange]);
+  }, [location, selectedCity, resolvedCity, prayerMethod, onPreferencesChange]);
 
   // Fetch prayer times when location, date, or method changes
   useEffect(() => {
@@ -384,7 +425,7 @@ export function PrayerTimesCard({ selectedDate, onPreferencesChange }: PrayerTim
           {location && (
             <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
               <MapPin className="h-3 w-3 text-gold" />
-              {selectedCity || `${location.latitude.toFixed(2)}°, ${location.longitude.toFixed(2)}°`}
+              {selectedCity || location.city || resolvedCity || `${location.latitude.toFixed(2)}°, ${location.longitude.toFixed(2)}°`}
             </p>
           )}
         </div>
