@@ -5,9 +5,8 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // For GitHub Pages: change this to your repo name, e.g., '/my-repo-name/'
-  // For local dev or Lovable hosting, keep as '/'
-  base: mode === "production" ? "/hijri-calendar/" : "/",
+  // Use relative base for GitHub Pages (works regardless of repo name/subpath)
+  base: mode === "production" ? "./" : "/",
   server: {
     host: "::",
     port: 8080,
