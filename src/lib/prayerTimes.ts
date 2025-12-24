@@ -306,8 +306,8 @@ export function formatTime12h(time24: string): string {
   return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
 
-// Get user's location using Geolocation API
-export function getUserLocation(): Promise<Location> {
+// Get user's location using Geolocation API with reverse geocoding
+export async function getUserLocation(): Promise<Location> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error('Geolocation is not supported'));
@@ -315,12 +315,26 @@ export function getUserLocation(): Promise<Location> {
     }
     
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
+        
+        // Try to get city name via reverse geocoding
+        let cityName: string | undefined;
+        try {
+          const response = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+          );
+          const data = await response.json();
+          cityName = data.city || data.locality || data.principalSubdivision;
+        } catch {
+          // Continue without city name if geocoding fails
+        }
+        
         resolve({
           latitude: lat,
           longitude: lon,
+          city: cityName,
           timezone: getTimezoneFromLongitude(lon),
         });
       },
