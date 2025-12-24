@@ -13,6 +13,7 @@ export interface Location {
   latitude: number;
   longitude: number;
   city?: string;
+  timezone?: number; // UTC offset in hours
 }
 
 export type PrayerMethod = 
@@ -183,6 +184,11 @@ export const PRAYER_METHOD_GROUPS = {
 const toRadians = (deg: number) => (deg * Math.PI) / 180;
 const toDegrees = (rad: number) => (rad * 180) / Math.PI;
 
+// Calculate timezone offset from longitude (approximate)
+export function getTimezoneFromLongitude(longitude: number): number {
+  return Math.round(longitude / 15);
+}
+
 // Calculate prayer times for a given date and location
 export function calculatePrayerTimes(
   date: Date,
@@ -191,6 +197,9 @@ export function calculatePrayerTimes(
 ): PrayerTimes {
   const { latitude, longitude } = location;
   const config = PRAYER_METHODS[method];
+  
+  // Use location's timezone or calculate from longitude
+  const timezone = location.timezone ?? getTimezoneFromLongitude(longitude);
   
   // Julian date calculation
   const jd = julianDate(date);
@@ -205,10 +214,7 @@ export function calculatePrayerTimes(
   const decl = toDegrees(Math.asin(Math.sin(toRadians(e)) * Math.sin(toRadians(L))));
   const EqT = q / 15 - fixHour(RA);
   
-  // Timezone offset in hours
-  const timezone = -date.getTimezoneOffset() / 60;
-  
-  // Calculate Dhuhr time
+  // Calculate Dhuhr time using the location's timezone
   const dhuhr = 12 + timezone - longitude / 15 - EqT;
   
   // Calculate sunrise and sunset
@@ -234,7 +240,7 @@ export function calculatePrayerTimes(
   } else if (config.ishaAngle) {
     isha = dhuhr + hourAngle(config.ishaAngle, decl, latitude);
   } else {
-    isha = maghrib + 1.5; // Default 90 minutes after maghrib
+    isha = maghrib + 1.5;
   }
   
   return {
@@ -315,9 +321,12 @@ export function getUserLocation(): Promise<Location> {
     
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
         resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
+          latitude: lat,
+          longitude: lon,
+          timezone: getTimezoneFromLongitude(lon),
         });
       },
       (error) => {
@@ -328,32 +337,46 @@ export function getUserLocation(): Promise<Location> {
   });
 }
 
-// Default locations for common cities
+// Default locations for common cities with proper timezones
 export const DEFAULT_LOCATIONS: Record<string, Location> = {
-  'Mecca': { latitude: 21.4225, longitude: 39.8262, city: 'Mecca' },
-  'Medina': { latitude: 24.5247, longitude: 39.5692, city: 'Medina' },
-  'Qom': { latitude: 34.6416, longitude: 50.8746, city: 'Qom' },
-  'Najaf': { latitude: 32.0000, longitude: 44.3360, city: 'Najaf' },
-  'Karbala': { latitude: 32.6160, longitude: 44.0249, city: 'Karbala' },
-  'Tehran': { latitude: 35.6892, longitude: 51.3890, city: 'Tehran' },
-  'Cairo': { latitude: 30.0444, longitude: 31.2357, city: 'Cairo' },
-  'Istanbul': { latitude: 41.0082, longitude: 28.9784, city: 'Istanbul' },
-  'Dubai': { latitude: 25.2048, longitude: 55.2708, city: 'Dubai' },
-  'London': { latitude: 51.5074, longitude: -0.1278, city: 'London' },
-  'New York': { latitude: 40.7128, longitude: -74.0060, city: 'New York' },
-  'Karachi': { latitude: 24.8607, longitude: 67.0011, city: 'Karachi' },
-  'Lahore': { latitude: 31.5204, longitude: 74.3587, city: 'Lahore' },
-  'Islamabad': { latitude: 33.6844, longitude: 73.0479, city: 'Islamabad' },
-  'Jakarta': { latitude: -6.2088, longitude: 106.8456, city: 'Jakarta' },
-  'Kuala Lumpur': { latitude: 3.1390, longitude: 101.6869, city: 'Kuala Lumpur' },
-  'Baghdad': { latitude: 33.3152, longitude: 44.3661, city: 'Baghdad' },
-  'Riyadh': { latitude: 24.7136, longitude: 46.6753, city: 'Riyadh' },
-  'Jeddah': { latitude: 21.4858, longitude: 39.1925, city: 'Jeddah' },
-  'Doha': { latitude: 25.2867, longitude: 51.5333, city: 'Doha' },
-  'Kuwait City': { latitude: 29.3759, longitude: 47.9774, city: 'Kuwait City' },
-  'Muscat': { latitude: 23.5880, longitude: 58.3829, city: 'Muscat' },
-  'Ankara': { latitude: 39.9334, longitude: 32.8597, city: 'Ankara' },
-  'Paris': { latitude: 48.8566, longitude: 2.3522, city: 'Paris' },
-  'Toronto': { latitude: 43.6532, longitude: -79.3832, city: 'Toronto' },
-  'Sydney': { latitude: -33.8688, longitude: 151.2093, city: 'Sydney' },
+  'Mecca': { latitude: 21.4225, longitude: 39.8262, city: 'Mecca', timezone: 3 },
+  'Medina': { latitude: 24.5247, longitude: 39.5692, city: 'Medina', timezone: 3 },
+  'Qom': { latitude: 34.6416, longitude: 50.8746, city: 'Qom', timezone: 3.5 },
+  'Najaf': { latitude: 32.0000, longitude: 44.3360, city: 'Najaf', timezone: 3 },
+  'Karbala': { latitude: 32.6160, longitude: 44.0249, city: 'Karbala', timezone: 3 },
+  'Tehran': { latitude: 35.6892, longitude: 51.3890, city: 'Tehran', timezone: 3.5 },
+  'Cairo': { latitude: 30.0444, longitude: 31.2357, city: 'Cairo', timezone: 2 },
+  'Istanbul': { latitude: 41.0082, longitude: 28.9784, city: 'Istanbul', timezone: 3 },
+  'Dubai': { latitude: 25.2048, longitude: 55.2708, city: 'Dubai', timezone: 4 },
+  'London': { latitude: 51.5074, longitude: -0.1278, city: 'London', timezone: 0 },
+  'New York': { latitude: 40.7128, longitude: -74.0060, city: 'New York', timezone: -5 },
+  'Los Angeles': { latitude: 34.0522, longitude: -118.2437, city: 'Los Angeles', timezone: -8 },
+  'Toronto': { latitude: 43.6532, longitude: -79.3832, city: 'Toronto', timezone: -5 },
+  'Karachi': { latitude: 24.8607, longitude: 67.0011, city: 'Karachi', timezone: 5 },
+  'Lahore': { latitude: 31.5204, longitude: 74.3587, city: 'Lahore', timezone: 5 },
+  'Islamabad': { latitude: 33.6844, longitude: 73.0479, city: 'Islamabad', timezone: 5 },
+  'Jakarta': { latitude: -6.2088, longitude: 106.8456, city: 'Jakarta', timezone: 7 },
+  'Kuala Lumpur': { latitude: 3.1390, longitude: 101.6869, city: 'Kuala Lumpur', timezone: 8 },
+  'Baghdad': { latitude: 33.3152, longitude: 44.3661, city: 'Baghdad', timezone: 3 },
+  'Riyadh': { latitude: 24.7136, longitude: 46.6753, city: 'Riyadh', timezone: 3 },
+  'Jeddah': { latitude: 21.4858, longitude: 39.1925, city: 'Jeddah', timezone: 3 },
+  'Doha': { latitude: 25.2867, longitude: 51.5333, city: 'Doha', timezone: 3 },
+  'Kuwait City': { latitude: 29.3759, longitude: 47.9774, city: 'Kuwait City', timezone: 3 },
+  'Muscat': { latitude: 23.5880, longitude: 58.3829, city: 'Muscat', timezone: 4 },
+  'Ankara': { latitude: 39.9334, longitude: 32.8597, city: 'Ankara', timezone: 3 },
+  'Paris': { latitude: 48.8566, longitude: 2.3522, city: 'Paris', timezone: 1 },
+  'Berlin': { latitude: 52.5200, longitude: 13.4050, city: 'Berlin', timezone: 1 },
+  'Sydney': { latitude: -33.8688, longitude: 151.2093, city: 'Sydney', timezone: 11 },
+  'Melbourne': { latitude: -37.8136, longitude: 144.9631, city: 'Melbourne', timezone: 11 },
 };
+
+// Format timezone for display
+export function formatTimezone(tz: number): string {
+  const sign = tz >= 0 ? '+' : '-';
+  const hours = Math.floor(Math.abs(tz));
+  const minutes = (Math.abs(tz) % 1) * 60;
+  if (minutes === 0) {
+    return `UTC${sign}${hours}`;
+  }
+  return `UTC${sign}${hours}:${minutes.toString().padStart(2, '0')}`;
+}
