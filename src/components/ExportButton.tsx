@@ -257,9 +257,12 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
         const y = tableTop + rowHeight + 1 + index * rowHeight;
         const isFriday = dayData.date.getDay() === 5;
 
-        // Yellow background only for Fridays
+        // Row backgrounds: yellow for Fridays, alternating gray for others
         if (isFriday) {
           pdf.setFillColor(252, 248, 230);
+          pdf.rect(tableMarginLeft, y, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
+        } else if (index % 2 === 0) {
+          pdf.setFillColor(245, 245, 245);
           pdf.rect(tableMarginLeft, y, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
         }
 
