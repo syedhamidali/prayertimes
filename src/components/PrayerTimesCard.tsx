@@ -21,7 +21,6 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  calculatePrayerTimes,
   formatTime12h,
   getUserLocation,
   DEFAULT_LOCATIONS,
@@ -33,6 +32,7 @@ import {
   getTimezoneFromLongitude,
   formatTimezone,
 } from '@/lib/prayerTimes';
+import { fetchPrayerTimesFromAladhan } from '@/lib/aladhanApi';
 import { LocationMap } from '@/components/LocationMap';
 import { cn } from '@/lib/utils';
 
@@ -83,12 +83,27 @@ export function PrayerTimesCard({ selectedDate }: PrayerTimesCardProps) {
     detectLocation();
   }, []);
 
-  // Calculate prayer times when location, date, or method changes
+  // Fetch prayer times when location, date, or method changes
   useEffect(() => {
-    if (location) {
-      const times = calculatePrayerTimes(selectedDate, location, prayerMethod);
-      setPrayerTimes(times);
-    }
+    if (!location) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const times = await fetchPrayerTimesFromAladhan({
+          date: selectedDate,
+          location,
+          method: prayerMethod,
+        });
+        if (!cancelled) setPrayerTimes(times);
+      } catch {
+        // If API is unavailable, keep the last known times.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [location, selectedDate, prayerMethod]);
 
   // Determine current prayer (based on location's local time)
