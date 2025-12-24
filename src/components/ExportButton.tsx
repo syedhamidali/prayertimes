@@ -31,6 +31,30 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
       const days = getMonthDays(hijriYear, hijriMonth, method);
       const methodLabel = CALCULATION_METHODS.find(m => m.value === method)?.label || method;
 
+      // Get user location first
+      let latitude = 21.4225; // Default to Makkah
+      let longitude = 39.8262;
+      let cityName = 'Makkah'; // Default city
+      
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
+        });
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
+        
+        // Reverse geocode to get city name
+        try {
+          const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
+          const geoData = await geoRes.json();
+          cityName = geoData.address?.city || geoData.address?.town || geoData.address?.village || geoData.address?.county || 'Unknown Location';
+        } catch {
+          cityName = 'Unknown Location';
+        }
+      } catch {
+        // Use default location
+      }
+
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
@@ -52,6 +76,11 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
       pdf.setTextColor(100, 100, 100);
       pdf.text(`Calculation Method: ${methodLabel}`, pdfWidth / 2, 26, { align: 'center' });
 
+      // City name
+      pdf.setFontSize(10);
+      pdf.setTextColor(80, 80, 80);
+      pdf.text(`Location: ${cityName}`, pdfWidth / 2, 32, { align: 'center' });
+
       // Gregorian span
       if (days.length > 0) {
         const firstDate = days[0].gregorianDate;
@@ -60,12 +89,12 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
         const lastMonth = GREGORIAN_MONTHS[lastDate.getMonth()];
         let span = firstMonth === lastMonth ? `${firstMonth} ${firstDate.getFullYear()}` : `${firstMonth} - ${lastMonth} ${firstDate.getFullYear()}`;
         pdf.setFontSize(9);
-        pdf.text(span, pdfWidth / 2, 32, { align: 'center' });
+        pdf.text(span, pdfWidth / 2, 38, { align: 'center' });
       }
 
       // Calendar grid settings
       const marginLeft = 15;
-      const marginTop = 40;
+      const marginTop = 46;
       const cellWidth = (pdfWidth - 30) / 7;
       const cellHeight = 18;
 
@@ -136,29 +165,21 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
       // ===== PAGE 2: Prayer Times Table =====
       pdf.addPage();
 
-      // Get user location for prayer times
-      let latitude = 21.4225; // Default to Makkah
-      let longitude = 39.8262;
-      
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
-        });
-        latitude = pos.coords.latitude;
-        longitude = pos.coords.longitude;
-      } catch {
-        // Use default location
-      }
-
       // Header for prayer times page
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(18);
       pdf.setTextColor(26, 71, 55);
       pdf.text(`Prayer Times - ${HIJRI_MONTHS[hijriMonth - 1]} ${hijriYear} AH`, pdfWidth / 2, 15, { align: 'center' });
 
+      // City name below header
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      pdf.setTextColor(80, 80, 80);
+      pdf.text(`Location: ${cityName}`, pdfWidth / 2, 22, { align: 'center' });
+
       // Table settings
       const tableMarginLeft = 10;
-      const tableTop = 25;
+      const tableTop = 30;
       const colWidths = [32, 28, 28, 28, 28, 28, 28, 28, 28]; // Gregorian, Hijri, Fajr, Sunrise, Dhuhr, Asr, Sunset, Maghrib, Isha
       const rowHeight = 6;
       const headers = ['Gregorian', 'Hijri', 'Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Sunset', 'Maghrib', 'Isha'];
@@ -257,7 +278,7 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
       // Footer
       pdf.setFontSize(8);
       pdf.setTextColor(150, 150, 150);
-      pdf.text(`Prayer times based on coordinates: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`, pdfWidth / 2, pdfHeight - 8, { align: 'center' });
+      pdf.text(`Generated on ${new Date().toLocaleDateString()}`, pdfWidth / 2, pdfHeight - 8, { align: 'center' });
 
       const fileName = `hijri-calendar-${HIJRI_MONTHS[hijriMonth - 1].toLowerCase()}-${hijriYear}.pdf`;
       pdf.save(fileName);
