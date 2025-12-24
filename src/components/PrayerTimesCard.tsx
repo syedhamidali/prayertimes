@@ -54,7 +54,7 @@ export function PrayerTimesCard({ selectedDate, onPreferencesChange }: PrayerTim
   const [location, setLocation] = useState<Location>({ latitude: 21.4225, longitude: 39.8262, city: 'Mecca', timezone: 3 });
   const [selectedCity, setSelectedCity] = useState<string>('Mecca');
   const [resolvedCity, setResolvedCity] = useState<string>('');
-  const [prayerMethod, setPrayerMethod] = useState<PrayerMethod>('shafi');
+  const [prayerMethod, setPrayerMethod] = useState<PrayerMethod>('leva-qom');
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentPrayer, setCurrentPrayer] = useState<string | null>(null);
