@@ -2,37 +2,26 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { HIJRI_MONTHS, CalculationMethod, CALCULATION_METHODS } from '@/lib/hijriUtils';
+import { HIJRI_MONTHS, CalculationMethod, CALCULATION_METHODS, getMonthDays, WEEKDAYS, GREGORIAN_MONTHS } from '@/lib/hijriUtils';
 
 interface ExportButtonProps {
   hijriYear: number;
   hijriMonth: number;
   method: CalculationMethod;
-  calendarRef: React.RefObject<HTMLDivElement>;
 }
 
-export function ExportButton({ hijriYear, hijriMonth, method, calendarRef }: ExportButtonProps) {
+export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async () => {
-    if (!calendarRef.current) {
-      toast.error('Calendar not found');
-      return;
-    }
-
     setIsExporting(true);
     toast.loading('Generating PDF...', { id: 'export' });
 
     try {
-      const canvas = await html2canvas(calendarRef.current, {
-        scale: 2,
-        backgroundColor: '#f9f7f4',
-        logging: false,
-      });
+      const days = getMonthDays(hijriYear, hijriMonth, method);
+      const methodLabel = CALCULATION_METHODS.find(m => m.value === method)?.label || method;
 
-      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
@@ -41,33 +30,99 @@ export function ExportButton({ hijriYear, hijriMonth, method, calendarRef }: Exp
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      // Add header
-      const methodLabel = CALCULATION_METHODS.find(m => m.value === method)?.label || method;
+
+      // Header
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(16);
-      pdf.setTextColor(26, 71, 55); // Emerald color
-      pdf.text(`${HIJRI_MONTHS[hijriMonth - 1]} ${hijriYear} AH`, pdfWidth / 2, 15, { align: 'center' });
-      
+      pdf.setFontSize(20);
+      pdf.setTextColor(26, 71, 55);
+      pdf.text(`${HIJRI_MONTHS[hijriMonth - 1]} ${hijriYear} AH`, pdfWidth / 2, 18, { align: 'center' });
+
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(10);
       pdf.setTextColor(100, 100, 100);
-      pdf.text(`Calculation Method: ${methodLabel}`, pdfWidth / 2, 22, { align: 'center' });
+      pdf.text(`Calculation Method: ${methodLabel}`, pdfWidth / 2, 26, { align: 'center' });
 
-      // Calculate image dimensions
-      const imgWidth = pdfWidth - 20;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      const yPosition = 28;
+      // Gregorian span
+      if (days.length > 0) {
+        const firstDate = days[0].gregorianDate;
+        const lastDate = days[days.length - 1].gregorianDate;
+        const firstMonth = GREGORIAN_MONTHS[firstDate.getMonth()];
+        const lastMonth = GREGORIAN_MONTHS[lastDate.getMonth()];
+        let span = firstMonth === lastMonth ? `${firstMonth} ${firstDate.getFullYear()}` : `${firstMonth} - ${lastMonth} ${firstDate.getFullYear()}`;
+        pdf.setFontSize(9);
+        pdf.text(span, pdfWidth / 2, 32, { align: 'center' });
+      }
 
-      // Add calendar image
-      pdf.addImage(imgData, 'PNG', 10, yPosition, imgWidth, Math.min(imgHeight, pdfHeight - yPosition - 15));
+      // Calendar grid settings
+      const marginLeft = 15;
+      const marginTop = 40;
+      const cellWidth = (pdfWidth - 30) / 7;
+      const cellHeight = 18;
 
-      // Add footer
+      // Weekday headers
+      pdf.setFillColor(240, 240, 235);
+      pdf.rect(marginLeft, marginTop, pdfWidth - 30, 10, 'F');
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10);
+      pdf.setTextColor(60, 60, 60);
+      WEEKDAYS.forEach((day, i) => {
+        const x = marginLeft + i * cellWidth + cellWidth / 2;
+        pdf.text(day, x, marginTop + 7, { align: 'center' });
+      });
+
+      // Draw days
+      const firstDayOfWeek = days.length > 0 ? days[0].gregorianDate.getDay() : 0;
+      let row = 0;
+      let col = firstDayOfWeek;
+
+      pdf.setFont('helvetica', 'normal');
+
+      days.forEach((day) => {
+        const x = marginLeft + col * cellWidth;
+        const y = marginTop + 12 + row * cellHeight;
+        const isFriday = day.gregorianDate.getDay() === 5;
+
+        // Cell background
+        if (day.isToday) {
+          pdf.setFillColor(26, 71, 55);
+          pdf.roundedRect(x + 1, y, cellWidth - 2, cellHeight - 2, 2, 2, 'F');
+          pdf.setTextColor(255, 255, 255);
+        } else if (isFriday) {
+          pdf.setFillColor(212, 175, 55, 0.2);
+          pdf.roundedRect(x + 1, y, cellWidth - 2, cellHeight - 2, 2, 2, 'F');
+          pdf.setTextColor(26, 71, 55);
+        } else {
+          pdf.setTextColor(30, 30, 30);
+        }
+
+        // Hijri day
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(14);
+        pdf.text(String(day.hijriDay), x + cellWidth / 2, y + 8, { align: 'center' });
+
+        // Gregorian date
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8);
+        if (day.isToday) {
+          pdf.setTextColor(220, 220, 220);
+        } else {
+          pdf.setTextColor(120, 120, 120);
+        }
+        const gregText = `${day.gregorianDate.getDate()} ${GREGORIAN_MONTHS[day.gregorianDate.getMonth()].slice(0, 3)}`;
+        pdf.text(gregText, x + cellWidth / 2, y + 14, { align: 'center' });
+
+        col++;
+        if (col > 6) {
+          col = 0;
+          row++;
+        }
+      });
+
+      // Footer
       pdf.setFontSize(8);
       pdf.setTextColor(150, 150, 150);
       pdf.text(`Generated on ${new Date().toLocaleDateString()}`, pdfWidth / 2, pdfHeight - 8, { align: 'center' });
 
-      // Save PDF
       const fileName = `hijri-calendar-${HIJRI_MONTHS[hijriMonth - 1].toLowerCase()}-${hijriYear}.pdf`;
       pdf.save(fileName);
 

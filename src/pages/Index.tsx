@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { CalendarHeader } from '@/components/CalendarHeader';
 import { CalendarGrid } from '@/components/CalendarGrid';
 import { MethodSelector } from '@/components/MethodSelector';
@@ -12,7 +12,6 @@ const Index = () => {
   const [method, setMethod] = useState<CalculationMethod>('shafi');
   const [hijriYear, setHijriYear] = useState(1446);
   const [hijriMonth, setHijriMonth] = useState(6);
-  const calendarRef = useRef<HTMLDivElement>(null);
 
   // Initialize with current Hijri date
   useEffect(() => {
@@ -117,7 +116,6 @@ const Index = () => {
               hijriYear={hijriYear}
               hijriMonth={hijriMonth}
               method={method}
-              calendarRef={calendarRef}
             />
           </div>
         </div>
@@ -126,7 +124,7 @@ const Index = () => {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Calendar - takes 2 columns on large screens */}
           <div className="lg:col-span-2">
-            <div ref={calendarRef} className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+            <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
               <CalendarHeader
                 hijriYear={hijriYear}
                 hijriMonth={hijriMonth}
