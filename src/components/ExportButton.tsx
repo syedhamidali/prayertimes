@@ -12,12 +12,11 @@ interface ExportButtonProps {
   method: CalculationMethod;
 }
 
-// Convert 24h time to 12h format
+// Convert 24h time to 12h format (without AM/PM suffix)
 function to12Hour(time24: string): string {
   const [hours, minutes] = time24.split(':').map(Number);
-  const period = hours >= 12 ? 'PM' : 'AM';
   const hours12 = hours % 12 || 12;
-  return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`;
+  return `${hours12}:${String(minutes).padStart(2, '0')}`;
 }
 
 export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProps) {
@@ -180,9 +179,9 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
       // Table settings - A4 landscape height is ~210mm, need to fit 30 rows + header + footer
       const tableMarginLeft = 10;
       const tableTop = 28;
-      const colWidths = [32, 28, 30, 30, 30, 30, 30, 30]; // Gregorian, Hijri, Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha
-      const rowHeight = 5.2; // Reduced to fit 30 days
-      const headers = ['Gregorian', 'Hijri', 'Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+      const colWidths = [30, 24, 26, 26, 26, 26, 26, 26]; // Reduced spacing
+      const rowHeight = 5.5; // Slightly increased for larger font
+      const headers = ['Gregorian', 'Hijri', 'Fajr (AM)', 'Sunrise', 'Dhuhr (PM)', 'Asr (PM)', 'Maghrib', 'Isha (PM)'];
 
       // Draw header row
       pdf.setFillColor(26, 71, 55);
@@ -215,7 +214,7 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
 
       // Draw data rows
       pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(6.5);
+      pdf.setFontSize(7.5); // Increased font size
 
       prayerTimesData.forEach((dayData, index) => {
         const y = tableTop + rowHeight + 1 + index * rowHeight;
