@@ -1,23 +1,77 @@
 import { useState, useEffect, useMemo } from 'react';
 import { CalendarHeader } from '@/components/CalendarHeader';
 import { CalendarGrid } from '@/components/CalendarGrid';
-import { MethodSelector } from '@/components/MethodSelector';
 import { YearSelector } from '@/components/YearSelector';
 import { ExportButton } from '@/components/ExportButton';
 import { PrayerTimesCard } from '@/components/PrayerTimesCard';
 import { getCurrentHijriDate, CalculationMethod, formatHijriDate, hijriToGregorian } from '@/lib/hijriUtils';
-import { Moon, Star } from 'lucide-react';
+import { Moon, Star, MapPin } from 'lucide-react';
+
+interface LocationInfo {
+  city?: string;
+  country?: string;
+  loading: boolean;
+}
 
 const Index = () => {
-  const [method, setMethod] = useState<CalculationMethod>('shafi');
+  const method: CalculationMethod = 'shafi';
   const [hijriYear, setHijriYear] = useState(1446);
   const [hijriMonth, setHijriMonth] = useState(6);
+  const [location, setLocation] = useState<LocationInfo>({ loading: true });
 
-  // Initialize with current Hijri date
+  // Get location and initialize with current Hijri date
   useEffect(() => {
     const current = getCurrentHijriDate(method);
     setHijriYear(current.year);
     setHijriMonth(current.month);
+
+    // Try to get device location first
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            const response = await fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+            );
+            const data = await response.json();
+            setLocation({
+              city: data.city || data.locality,
+              country: data.countryName,
+              loading: false
+            });
+          } catch {
+            setLocation({ loading: false });
+          }
+        },
+        async () => {
+          // Fallback to IP-based location
+          try {
+            const response = await fetch('https://ipapi.co/json/');
+            const data = await response.json();
+            setLocation({
+              city: data.city,
+              country: data.country_name,
+              loading: false
+            });
+          } catch {
+            setLocation({ loading: false });
+          }
+        }
+      );
+    } else {
+      // No geolocation, use IP-based
+      fetch('https://ipapi.co/json/')
+        .then(res => res.json())
+        .then(data => {
+          setLocation({
+            city: data.city,
+            country: data.country_name,
+            loading: false
+          });
+        })
+        .catch(() => setLocation({ loading: false }));
+    }
   }, []);
 
   // Get the first day of the currently selected Hijri month as Gregorian date
@@ -77,15 +131,16 @@ const Index = () => {
             <div className="p-3 rounded-2xl bg-gold/20 backdrop-blur-sm">
               <Moon className="h-8 w-8 text-gold" />
             </div>
-            <h1 className="font-display text-4xl sm:text-6xl font-bold text-primary-foreground drop-shadow-lg">
-              Hijri Calendar
+            <h1 className="font-display text-3xl sm:text-5xl font-bold text-primary-foreground drop-shadow-lg" dir="rtl">
+              بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
             </h1>
             <div className="p-3 rounded-2xl bg-gold/20 backdrop-blur-sm">
               <Moon className="h-8 w-8 text-gold" />
             </div>
           </div>
-          <p className="text-primary-foreground/80 text-lg sm:text-xl animate-fade-in max-w-2xl mx-auto" style={{ animationDelay: '0.1s' }}>
-            Islamic Calendar Generator with Prayer Times & Multiple Calculation Methods
+          <p className="text-primary-foreground/80 text-lg sm:text-xl animate-fade-in max-w-2xl mx-auto flex items-center justify-center gap-2" style={{ animationDelay: '0.1s' }}>
+            <MapPin className="h-5 w-5" />
+            {location.loading ? 'Detecting location...' : location.city && location.country ? `${location.city}, ${location.country}` : 'Islamic Calendar & Prayer Times'}
           </p>
           <div className="mt-6 animate-fade-in" style={{ animationDelay: '0.2s' }}>
             <div className="inline-flex items-center gap-3 bg-primary-foreground/10 backdrop-blur-sm rounded-2xl px-6 py-3 border border-primary-foreground/20">
@@ -103,15 +158,12 @@ const Index = () => {
         {/* Controls */}
         <div className="bg-card/80 backdrop-blur-md rounded-3xl shadow-card border border-border/50 p-5 sm:p-7 mb-6 animate-slide-up">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <MethodSelector value={method} onChange={setMethod} />
-              <YearSelector
-                year={hijriYear}
-                month={hijriMonth}
-                onYearChange={setHijriYear}
-                onMonthChange={setHijriMonth}
-              />
-            </div>
+            <YearSelector
+              year={hijriYear}
+              month={hijriMonth}
+              onYearChange={setHijriYear}
+              onMonthChange={setHijriMonth}
+            />
             <ExportButton
               hijriYear={hijriYear}
               hijriMonth={hijriMonth}
