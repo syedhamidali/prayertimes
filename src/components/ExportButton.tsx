@@ -180,9 +180,9 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
       // Table settings - A4 landscape height is ~210mm, need to fit 30 rows + header + footer
       const tableMarginLeft = 10;
       const tableTop = 28;
-      const colWidths = [32, 28, 28, 28, 28, 28, 28, 28, 28]; // Gregorian, Hijri, Fajr, Sunrise, Dhuhr, Asr, Sunset, Maghrib, Isha
+      const colWidths = [32, 28, 30, 30, 30, 30, 30, 30]; // Gregorian, Hijri, Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha
       const rowHeight = 5.2; // Reduced to fit 30 days
-      const headers = ['Gregorian', 'Hijri', 'Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Sunset', 'Maghrib', 'Isha'];
+      const headers = ['Gregorian', 'Hijri', 'Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
       // Draw header row
       pdf.setFillColor(26, 71, 55);
@@ -259,16 +259,12 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
           pdf.text(to12Hour(dayData.times.asr), x + colWidths[5] / 2, y + 3.8, { align: 'center' });
           x += colWidths[5];
 
-          // Sunset
+          // Maghrib
           pdf.text(to12Hour(dayData.times.maghrib), x + colWidths[6] / 2, y + 3.8, { align: 'center' });
           x += colWidths[6];
 
-          // Maghrib
-          pdf.text(to12Hour(dayData.times.maghrib), x + colWidths[7] / 2, y + 3.8, { align: 'center' });
-          x += colWidths[7];
-
           // Isha
-          pdf.text(to12Hour(dayData.times.isha), x + colWidths[8] / 2, y + 3.8, { align: 'center' });
+          pdf.text(to12Hour(dayData.times.isha), x + colWidths[7] / 2, y + 3.8, { align: 'center' });
         } else {
           pdf.setTextColor(150, 150, 150);
           pdf.text('—', x + colWidths[2] / 2, y + 3.8, { align: 'center' });
