@@ -56,7 +56,7 @@ const Index = () => {
     <div className="min-h-screen bg-background islamic-pattern">
       {/* Header */}
       <header className="emerald-gradient text-primary-foreground py-8 sm:py-12 px-4">
-        <div className="container max-w-5xl mx-auto text-center">
+        <div className="container max-w-6xl mx-auto text-center">
           <div className="flex items-center justify-center gap-3 mb-4 animate-fade-in">
             <Moon className="h-8 w-8 text-gold" />
             <h1 className="font-display text-3xl sm:text-5xl font-bold">
@@ -74,7 +74,7 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container max-w-5xl mx-auto px-4 py-8">
+      <main className="container max-w-6xl mx-auto px-4 py-8">
         {/* Controls */}
         <div className="bg-card rounded-2xl shadow-card p-4 sm:p-6 mb-6 animate-slide-up">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
@@ -118,16 +118,22 @@ const Index = () => {
 
           {/* Prayer Times - takes 1 column on large screens */}
           <div className="lg:col-span-1">
-            <PrayerTimesCard method={method} selectedDate={selectedDate} />
+            <PrayerTimesCard selectedDate={selectedDate} />
             
             {/* Info Section */}
             <div className="mt-6 bg-card rounded-2xl shadow-card p-6 animate-slide-up" style={{ animationDelay: '0.25s' }}>
               <h3 className="font-display text-lg font-bold text-primary mb-3">
                 About Methods
               </h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                Different Islamic schools use slightly different methods for determining prayer times and lunar month calculations. Select the method that matches your school of jurisprudence.
+              <p className="text-muted-foreground text-sm leading-relaxed mb-3">
+                Different Islamic schools and research institutes use slightly different methods for determining prayer times.
               </p>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                <li>• <strong>Leva Research (Qom)</strong> - Shia method from Iran</li>
+                <li>• <strong>Jafari (Karachi)</strong> - Shia method for Pakistan</li>
+                <li>• <strong>Umm al-Qura</strong> - Official Saudi calendar</li>
+                <li>• <strong>ISNA</strong> - North American standard</li>
+              </ul>
             </div>
           </div>
         </div>
@@ -135,7 +141,7 @@ const Index = () => {
 
       {/* Footer */}
       <footer className="bg-card border-t border-border py-6 mt-12">
-        <div className="container max-w-5xl mx-auto px-4 text-center text-muted-foreground text-sm">
+        <div className="container max-w-6xl mx-auto px-4 text-center text-muted-foreground text-sm">
           <p className="font-display text-lg">
             بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
           </p>

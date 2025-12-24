@@ -1,13 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Clock, MapPin, Loader2, Sun, Sunrise, Sunset, Moon } from 'lucide-react';
+import { Clock, MapPin, Loader2, Sun, Sunrise, Sunset, Moon, Map, Edit3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   calculatePrayerTimes,
   formatTime12h,
@@ -16,12 +28,13 @@ import {
   Location,
   PrayerTimes,
   PRAYER_METHODS,
+  PRAYER_METHOD_GROUPS,
+  PrayerMethod,
 } from '@/lib/prayerTimes';
-import { CalculationMethod } from '@/lib/hijriUtils';
+import { LocationMap } from '@/components/LocationMap';
 import { cn } from '@/lib/utils';
 
 interface PrayerTimesCardProps {
-  method: CalculationMethod;
   selectedDate: Date;
 }
 
@@ -34,13 +47,18 @@ const PRAYER_INFO = [
   { key: 'isha', name: 'Isha', arabic: 'العشاء', icon: Moon },
 ] as const;
 
-export function PrayerTimesCard({ method, selectedDate }: PrayerTimesCardProps) {
-  const [location, setLocation] = useState<Location | null>(null);
-  const [selectedCity, setSelectedCity] = useState<string>('');
+export function PrayerTimesCard({ selectedDate }: PrayerTimesCardProps) {
+  const [location, setLocation] = useState<Location>({ latitude: 21.4225, longitude: 39.8262, city: 'Mecca' });
+  const [selectedCity, setSelectedCity] = useState<string>('Mecca');
+  const [prayerMethod, setPrayerMethod] = useState<PrayerMethod>('shafi');
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [currentPrayer, setCurrentPrayer] = useState<string | null>(null);
+  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
+  
+  // Manual lat/lon input state
+  const [manualLat, setManualLat] = useState('');
+  const [manualLon, setManualLon] = useState('');
 
   // Detect user location on mount
   useEffect(() => {
@@ -49,7 +67,7 @@ export function PrayerTimesCard({ method, selectedDate }: PrayerTimesCardProps) 
       try {
         const loc = await getUserLocation();
         setLocation(loc);
-        setError(null);
+        setSelectedCity('');
       } catch {
         // Default to Mecca if location detection fails
         setLocation(DEFAULT_LOCATIONS['Mecca']);
@@ -62,17 +80,13 @@ export function PrayerTimesCard({ method, selectedDate }: PrayerTimesCardProps) 
     detectLocation();
   }, []);
 
-  // Calculate prayer times when location or date changes
+  // Calculate prayer times when location, date, or method changes
   useEffect(() => {
     if (location) {
-      const times = calculatePrayerTimes(
-        selectedDate,
-        location,
-        method as keyof typeof PRAYER_METHODS
-      );
+      const times = calculatePrayerTimes(selectedDate, location, prayerMethod);
       setPrayerTimes(times);
     }
-  }, [location, selectedDate, method]);
+  }, [location, selectedDate, prayerMethod]);
 
   // Determine current prayer
   useEffect(() => {
@@ -95,7 +109,7 @@ export function PrayerTimesCard({ method, selectedDate }: PrayerTimesCardProps) 
       { name: 'isha', minutes: timeToMinutes(prayerTimes.isha) },
     ];
 
-    let current = 'isha'; // Default to isha (after all prayers)
+    let current = 'isha';
     for (let i = times.length - 1; i >= 0; i--) {
       if (currentTime >= times[i].minutes) {
         current = times[i].name;
@@ -103,7 +117,7 @@ export function PrayerTimesCard({ method, selectedDate }: PrayerTimesCardProps) 
       }
     }
     if (currentTime < times[0].minutes) {
-      current = 'isha'; // Before fajr, still isha from previous night
+      current = 'isha';
     }
 
     setCurrentPrayer(current);
@@ -116,16 +130,33 @@ export function PrayerTimesCard({ method, selectedDate }: PrayerTimesCardProps) 
 
   const handleDetectLocation = async () => {
     setIsLoading(true);
-    setError(null);
     try {
       const loc = await getUserLocation();
       setLocation(loc);
       setSelectedCity('');
     } catch {
-      setError('Could not detect location. Please select a city.');
+      // Keep current location
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleManualLocationSubmit = () => {
+    const lat = parseFloat(manualLat);
+    const lon = parseFloat(manualLon);
+    
+    if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+      setLocation({ latitude: lat, longitude: lon });
+      setSelectedCity('');
+      setIsLocationDialogOpen(false);
+    }
+  };
+
+  const handleMapLocationChange = (newLocation: Location) => {
+    setLocation(newLocation);
+    setSelectedCity('');
+    setManualLat(newLocation.latitude.toFixed(4));
+    setManualLon(newLocation.longitude.toFixed(4));
   };
 
   return (
@@ -151,30 +182,139 @@ export function PrayerTimesCard({ method, selectedDate }: PrayerTimesCardProps) 
         </Button>
       </div>
 
-      {/* Location selector */}
+      {/* Prayer Method Selector */}
       <div className="mb-4">
-        <Select value={selectedCity} onValueChange={handleCityChange}>
+        <Label className="text-xs text-muted-foreground mb-1 block">Calculation Method</Label>
+        <Select value={prayerMethod} onValueChange={(v) => setPrayerMethod(v as PrayerMethod)}>
           <SelectTrigger className="w-full bg-secondary/50 border-primary/10">
-            <SelectValue placeholder={location?.city || 'Select a city or detect location'} />
+            <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-card border-primary/20">
-            {Object.keys(DEFAULT_LOCATIONS).map((city) => (
-              <SelectItem key={city} value={city} className="cursor-pointer">
-                {city}
-              </SelectItem>
+          <SelectContent className="bg-card border-primary/20 max-h-[300px]">
+            {Object.entries(PRAYER_METHOD_GROUPS).map(([group, methods]) => (
+              <SelectGroup key={group}>
+                <SelectLabel className="text-gold font-display">{group}</SelectLabel>
+                {methods.map((method) => (
+                  <SelectItem key={method} value={method} className="cursor-pointer">
+                    <div className="flex flex-col">
+                      <span>{PRAYER_METHODS[method].name}</span>
+                      {PRAYER_METHODS[method].region && (
+                        <span className="text-xs text-muted-foreground">
+                          {PRAYER_METHODS[method].region}
+                        </span>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             ))}
           </SelectContent>
         </Select>
-        {location && !selectedCity && (
+      </div>
+
+      {/* Location selector */}
+      <div className="mb-4">
+        <Label className="text-xs text-muted-foreground mb-1 block">Location</Label>
+        <div className="flex gap-2">
+          <Select value={selectedCity} onValueChange={handleCityChange}>
+            <SelectTrigger className="flex-1 bg-secondary/50 border-primary/10">
+              <SelectValue placeholder="Select a city" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-primary/20 max-h-[300px]">
+              {Object.keys(DEFAULT_LOCATIONS).sort().map((city) => (
+                <SelectItem key={city} value={city} className="cursor-pointer">
+                  {city}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Dialog open={isLocationDialogOpen} onOpenChange={setIsLocationDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" className="shrink-0 border-primary/20">
+                <Edit3 className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md bg-card">
+              <DialogHeader>
+                <DialogTitle className="font-display text-primary">Set Location</DialogTitle>
+              </DialogHeader>
+              
+              <Tabs defaultValue="map" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="map" className="flex items-center gap-2">
+                    <Map className="h-4 w-4" />
+                    Map
+                  </TabsTrigger>
+                  <TabsTrigger value="coordinates" className="flex items-center gap-2">
+                    <Edit3 className="h-4 w-4" />
+                    Coordinates
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="map" className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Click on the map or drag the marker to set your location.
+                  </p>
+                  <LocationMap 
+                    location={location} 
+                    onLocationChange={handleMapLocationChange}
+                  />
+                  <div className="text-center text-sm text-muted-foreground">
+                    {location.latitude.toFixed(4)}°, {location.longitude.toFixed(4)}°
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="coordinates" className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="latitude" className="text-sm">Latitude</Label>
+                      <Input
+                        id="latitude"
+                        type="number"
+                        step="0.0001"
+                        min="-90"
+                        max="90"
+                        placeholder="e.g., 21.4225"
+                        value={manualLat}
+                        onChange={(e) => setManualLat(e.target.value)}
+                        className="bg-secondary/50"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">-90 to 90</p>
+                    </div>
+                    <div>
+                      <Label htmlFor="longitude" className="text-sm">Longitude</Label>
+                      <Input
+                        id="longitude"
+                        type="number"
+                        step="0.0001"
+                        min="-180"
+                        max="180"
+                        placeholder="e.g., 39.8262"
+                        value={manualLon}
+                        onChange={(e) => setManualLon(e.target.value)}
+                        className="bg-secondary/50"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">-180 to 180</p>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={handleManualLocationSubmit}
+                    className="w-full bg-primary hover:bg-emerald-dark"
+                  >
+                    Apply Coordinates
+                  </Button>
+                </TabsContent>
+              </Tabs>
+            </DialogContent>
+          </Dialog>
+        </div>
+        
+        {location && (
           <p className="text-xs text-muted-foreground mt-1">
-            📍 Using detected location ({location.latitude.toFixed(2)}°, {location.longitude.toFixed(2)}°)
+            📍 {selectedCity || `${location.latitude.toFixed(2)}°, ${location.longitude.toFixed(2)}°`}
           </p>
         )}
       </div>
-
-      {error && (
-        <p className="text-destructive text-sm mb-4">{error}</p>
-      )}
 
       {/* Prayer times grid */}
       {prayerTimes && (
@@ -228,7 +368,7 @@ export function PrayerTimesCard({ method, selectedDate }: PrayerTimesCardProps) 
 
       {/* Method indicator */}
       <p className="text-xs text-muted-foreground text-center mt-4">
-        Calculated using {PRAYER_METHODS[method as keyof typeof PRAYER_METHODS]?.name || method} method
+        {PRAYER_METHODS[prayerMethod]?.name}
       </p>
     </div>
   );
