@@ -10,6 +10,7 @@ interface ExportButtonProps {
   hijriYear: number;
   hijriMonth: number;
   method: CalculationMethod;
+  userLocation?: { latitude: number; longitude: number; cityName: string };
 }
 
 // Convert 24h time to 12h format with AM/PM
@@ -20,9 +21,15 @@ function to12Hour(time24: string): string {
   return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
-// Helper to get location and city name
-async function getLocationInfo(): Promise<{ latitude: number; longitude: number; cityName: string }> {
-  let latitude = 21.4225; // Default to Makkah
+// Helper to get location and city name (fallback if not provided)
+async function getLocationInfo(providedLocation?: { latitude: number; longitude: number; cityName: string }): Promise<{ latitude: number; longitude: number; cityName: string }> {
+  // If location is provided from parent, use it
+  if (providedLocation && providedLocation.latitude && providedLocation.longitude) {
+    return providedLocation;
+  }
+  
+  // Fallback to Makkah
+  let latitude = 21.4225;
   let longitude = 39.8262;
   let cityName = 'Makkah';
 
@@ -47,7 +54,7 @@ async function getLocationInfo(): Promise<{ latitude: number; longitude: number;
   return { latitude, longitude, cityName };
 }
 
-export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProps) {
+export function ExportButton({ hijriYear, hijriMonth, method, userLocation }: ExportButtonProps) {
   const [isExportingCalendar, setIsExportingCalendar] = useState(false);
   const [isExportingPrayer, setIsExportingPrayer] = useState(false);
 
@@ -58,7 +65,7 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
     try {
       const days = getMonthDays(hijriYear, hijriMonth, method);
       const methodLabel = CALCULATION_METHODS.find(m => m.value === method)?.label || method;
-      const { cityName } = await getLocationInfo();
+      const { cityName } = await getLocationInfo(userLocation);
 
       const pdf = new jsPDF({
         orientation: 'landscape',
@@ -185,7 +192,7 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
     try {
       const days = getMonthDays(hijriYear, hijriMonth, method);
       const methodLabel = CALCULATION_METHODS.find(m => m.value === method)?.label || method;
-      const { latitude, longitude, cityName } = await getLocationInfo();
+      const { latitude, longitude, cityName } = await getLocationInfo(userLocation);
 
       // Letter size portrait
       const pdf = new jsPDF({

@@ -10,6 +10,8 @@ import { Moon, Star, MapPin } from 'lucide-react';
 interface LocationInfo {
   city?: string;
   country?: string;
+  latitude?: number;
+  longitude?: number;
   loading: boolean;
 }
 
@@ -38,6 +40,8 @@ const Index = () => {
             setLocation({
               city: data.city || data.locality,
               country: data.countryName,
+              latitude,
+              longitude,
               loading: false
             });
           } catch {
@@ -168,6 +172,11 @@ const Index = () => {
               hijriYear={hijriYear}
               hijriMonth={hijriMonth}
               method={method}
+              userLocation={location.latitude && location.longitude ? {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                cityName: location.city || 'Unknown'
+              } : undefined}
             />
           </div>
         </div>

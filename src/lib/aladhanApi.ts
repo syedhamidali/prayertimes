@@ -15,10 +15,11 @@ function stripTime(t: string) {
   return t.split(" ")[0];
 }
 
-export function toAladhanMethodId(method: PrayerMethod): number {
+export function toAladhanMethodId(method: PrayerMethod | string): number {
   switch (method) {
     case "jafari":
     case "leva-qom":
+    case "leva": // Support both leva and leva-qom
       return 0; // Shia Ithna-Ashari
     case "tehran":
       return 7;
@@ -52,14 +53,14 @@ export function toAladhanMethodId(method: PrayerMethod): number {
     case "jafari-karachi":
       return 1; // Karachi
     default:
-      return 3;
+      return 0; // Default to Shia Ithna-Ashari (Leva) instead of MWL
   }
 }
 
 export async function fetchPrayerTimesFromAladhan(opts: {
   date: Date;
   location: Location;
-  method: PrayerMethod;
+  method: PrayerMethod | string;
 }): Promise<PrayerTimes> {
   const { date, location, method } = opts;
 
