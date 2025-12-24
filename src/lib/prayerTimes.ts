@@ -1,4 +1,4 @@
-// Prayer time calculation utilities
+// Prayer time calculation utilities with extended methods
 
 export interface PrayerTimes {
   fajr: string;
@@ -15,16 +15,169 @@ export interface Location {
   city?: string;
 }
 
-// Calculation method configurations
-export const PRAYER_METHODS = {
-  'jafari': { fajrAngle: 16, ishaAngle: 14, name: 'Jafari' },
-  'shafi': { fajrAngle: 18, ishaAngle: 18, name: "Shafi'i" },
-  'hanafi': { fajrAngle: 18, ishaAngle: 18, asrFactor: 2, name: 'Hanafi' },
-  'maliki': { fajrAngle: 18, ishaAngle: 17, name: 'Maliki' },
-  'hanbali': { fajrAngle: 18, ishaAngle: 17, name: 'Hanbali' },
-  'umm-al-qura': { fajrAngle: 18.5, ishaMinutes: 90, name: 'Umm al-Qura' },
-  'isna': { fajrAngle: 15, ishaAngle: 15, name: 'ISNA' },
-} as const;
+export type PrayerMethod = 
+  | 'jafari'
+  | 'jafari-karachi'
+  | 'leva-qom'
+  | 'shafi'
+  | 'hanafi'
+  | 'maliki'
+  | 'hanbali'
+  | 'umm-al-qura'
+  | 'isna'
+  | 'mwl'
+  | 'egypt'
+  | 'tehran'
+  | 'gulf'
+  | 'kuwait'
+  | 'qatar'
+  | 'singapore'
+  | 'france'
+  | 'turkey'
+  | 'russia';
+
+// Extended calculation method configurations
+export const PRAYER_METHODS: Record<PrayerMethod, {
+  name: string;
+  fajrAngle: number;
+  ishaAngle?: number;
+  ishaMinutes?: number;
+  maghribMinutes?: number;
+  asrFactor?: number;
+  region?: string;
+}> = {
+  // Shia Methods
+  'jafari': { 
+    name: 'Jafari (Ithna Ashari)', 
+    fajrAngle: 16, 
+    ishaAngle: 14,
+    maghribMinutes: 4,
+    region: 'Shia'
+  },
+  'jafari-karachi': { 
+    name: 'Jafari (Karachi)', 
+    fajrAngle: 18, 
+    ishaAngle: 18,
+    maghribMinutes: 4,
+    region: 'Shia - Pakistan'
+  },
+  'leva-qom': { 
+    name: 'Leva Research Institute (Qom)', 
+    fajrAngle: 16, 
+    ishaAngle: 14,
+    maghribMinutes: 4,
+    region: 'Shia - Iran'
+  },
+  'tehran': { 
+    name: 'Institute of Geophysics (Tehran)', 
+    fajrAngle: 17.7, 
+    ishaAngle: 14,
+    maghribMinutes: 4,
+    region: 'Iran'
+  },
+  
+  // Sunni Methods
+  'shafi': { 
+    name: "Shafi'i / Standard", 
+    fajrAngle: 18, 
+    ishaAngle: 18,
+    region: 'Sunni'
+  },
+  'hanafi': { 
+    name: 'Hanafi', 
+    fajrAngle: 18, 
+    ishaAngle: 18, 
+    asrFactor: 2,
+    region: 'Sunni'
+  },
+  'maliki': { 
+    name: 'Maliki', 
+    fajrAngle: 18, 
+    ishaAngle: 17,
+    region: 'Sunni'
+  },
+  'hanbali': { 
+    name: 'Hanbali', 
+    fajrAngle: 18, 
+    ishaAngle: 17,
+    region: 'Sunni'
+  },
+  
+  // Regional/Organizational Methods
+  'mwl': { 
+    name: 'Muslim World League', 
+    fajrAngle: 18, 
+    ishaAngle: 17,
+    region: 'Global'
+  },
+  'isna': { 
+    name: 'ISNA (North America)', 
+    fajrAngle: 15, 
+    ishaAngle: 15,
+    region: 'North America'
+  },
+  'egypt': { 
+    name: 'Egyptian General Authority', 
+    fajrAngle: 19.5, 
+    ishaAngle: 17.5,
+    region: 'Egypt'
+  },
+  'umm-al-qura': { 
+    name: 'Umm al-Qura (Makkah)', 
+    fajrAngle: 18.5, 
+    ishaMinutes: 90,
+    region: 'Saudi Arabia'
+  },
+  'gulf': { 
+    name: 'Gulf Region', 
+    fajrAngle: 19.5, 
+    ishaMinutes: 90,
+    region: 'UAE/Oman'
+  },
+  'kuwait': { 
+    name: 'Kuwait', 
+    fajrAngle: 18, 
+    ishaAngle: 17.5,
+    region: 'Kuwait'
+  },
+  'qatar': { 
+    name: 'Qatar', 
+    fajrAngle: 18, 
+    ishaMinutes: 90,
+    region: 'Qatar'
+  },
+  'singapore': { 
+    name: 'MUIS (Singapore)', 
+    fajrAngle: 20, 
+    ishaAngle: 18,
+    region: 'Singapore/Malaysia'
+  },
+  'france': { 
+    name: 'UOIF (France)', 
+    fajrAngle: 12, 
+    ishaAngle: 12,
+    region: 'France'
+  },
+  'turkey': { 
+    name: 'Diyanet (Turkey)', 
+    fajrAngle: 18, 
+    ishaAngle: 17,
+    region: 'Turkey'
+  },
+  'russia': { 
+    name: 'Spiritual Administration (Russia)', 
+    fajrAngle: 16, 
+    ishaAngle: 15,
+    region: 'Russia'
+  },
+};
+
+// Group methods by category for UI
+export const PRAYER_METHOD_GROUPS = {
+  'Shia Methods': ['jafari', 'jafari-karachi', 'leva-qom', 'tehran'] as PrayerMethod[],
+  'Sunni Schools': ['shafi', 'hanafi', 'maliki', 'hanbali'] as PrayerMethod[],
+  'Regional/Organizational': ['mwl', 'isna', 'egypt', 'umm-al-qura', 'gulf', 'kuwait', 'qatar', 'singapore', 'france', 'turkey', 'russia'] as PrayerMethod[],
+};
 
 // Convert degrees to radians
 const toRadians = (deg: number) => (deg * Math.PI) / 180;
@@ -34,7 +187,7 @@ const toDegrees = (rad: number) => (rad * 180) / Math.PI;
 export function calculatePrayerTimes(
   date: Date,
   location: Location,
-  method: keyof typeof PRAYER_METHODS = 'shafi'
+  method: PrayerMethod = 'shafi'
 ): PrayerTimes {
   const { latitude, longitude } = location;
   const config = PRAYER_METHODS[method];
@@ -65,20 +218,23 @@ export function calculatePrayerTimes(
   // Calculate Fajr
   const fajr = dhuhr - hourAngle(config.fajrAngle, decl, latitude);
   
-  // Calculate Asr (Shafi: shadow = object + 1, Hanafi: shadow = object + 2)
-  const asrFactor = 'asrFactor' in config ? config.asrFactor : 1;
+  // Calculate Asr (Standard: shadow = object + 1, Hanafi: shadow = object + 2)
+  const asrFactor = config.asrFactor || 1;
   const asrAngle = toDegrees(Math.atan(1 / (asrFactor + Math.tan(toRadians(Math.abs(latitude - decl))))));
   const asr = dhuhr + hourAngle(90 - asrAngle, decl, latitude);
   
-  // Calculate Maghrib (sunset)
-  const maghrib = sunset;
+  // Calculate Maghrib (sunset + optional minutes)
+  const maghribMinutes = config.maghribMinutes || 0;
+  const maghrib = sunset + maghribMinutes / 60;
   
   // Calculate Isha
   let isha: number;
-  if ('ishaMinutes' in config) {
+  if (config.ishaMinutes) {
     isha = maghrib + config.ishaMinutes / 60;
-  } else {
+  } else if (config.ishaAngle) {
     isha = dhuhr + hourAngle(config.ishaAngle, decl, latitude);
+  } else {
+    isha = maghrib + 1.5; // Default 90 minutes after maghrib
   }
   
   return {
@@ -176,12 +332,28 @@ export function getUserLocation(): Promise<Location> {
 export const DEFAULT_LOCATIONS: Record<string, Location> = {
   'Mecca': { latitude: 21.4225, longitude: 39.8262, city: 'Mecca' },
   'Medina': { latitude: 24.5247, longitude: 39.5692, city: 'Medina' },
+  'Qom': { latitude: 34.6416, longitude: 50.8746, city: 'Qom' },
+  'Najaf': { latitude: 32.0000, longitude: 44.3360, city: 'Najaf' },
+  'Karbala': { latitude: 32.6160, longitude: 44.0249, city: 'Karbala' },
+  'Tehran': { latitude: 35.6892, longitude: 51.3890, city: 'Tehran' },
   'Cairo': { latitude: 30.0444, longitude: 31.2357, city: 'Cairo' },
   'Istanbul': { latitude: 41.0082, longitude: 28.9784, city: 'Istanbul' },
   'Dubai': { latitude: 25.2048, longitude: 55.2708, city: 'Dubai' },
   'London': { latitude: 51.5074, longitude: -0.1278, city: 'London' },
   'New York': { latitude: 40.7128, longitude: -74.0060, city: 'New York' },
   'Karachi': { latitude: 24.8607, longitude: 67.0011, city: 'Karachi' },
+  'Lahore': { latitude: 31.5204, longitude: 74.3587, city: 'Lahore' },
+  'Islamabad': { latitude: 33.6844, longitude: 73.0479, city: 'Islamabad' },
   'Jakarta': { latitude: -6.2088, longitude: 106.8456, city: 'Jakarta' },
   'Kuala Lumpur': { latitude: 3.1390, longitude: 101.6869, city: 'Kuala Lumpur' },
+  'Baghdad': { latitude: 33.3152, longitude: 44.3661, city: 'Baghdad' },
+  'Riyadh': { latitude: 24.7136, longitude: 46.6753, city: 'Riyadh' },
+  'Jeddah': { latitude: 21.4858, longitude: 39.1925, city: 'Jeddah' },
+  'Doha': { latitude: 25.2867, longitude: 51.5333, city: 'Doha' },
+  'Kuwait City': { latitude: 29.3759, longitude: 47.9774, city: 'Kuwait City' },
+  'Muscat': { latitude: 23.5880, longitude: 58.3829, city: 'Muscat' },
+  'Ankara': { latitude: 39.9334, longitude: 32.8597, city: 'Ankara' },
+  'Paris': { latitude: 48.8566, longitude: 2.3522, city: 'Paris' },
+  'Toronto': { latitude: 43.6532, longitude: -79.3832, city: 'Toronto' },
+  'Sydney': { latitude: -33.8688, longitude: 151.2093, city: 'Sydney' },
 };
