@@ -12,11 +12,12 @@ interface ExportButtonProps {
   method: CalculationMethod;
 }
 
-// Convert 24h time to 12h format (without AM/PM suffix)
+// Convert 24h time to 12h format with AM/PM
 function to12Hour(time24: string): string {
   const [hours, minutes] = time24.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
   const hours12 = hours % 12 || 12;
-  return `${hours12}:${String(minutes).padStart(2, '0')}`;
+  return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
 // Helper to get location and city name
@@ -215,9 +216,9 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
       // Table settings - Letter portrait has more vertical space
       const tableMarginLeft = 12;
       const tableTop = 40;
-      const colWidths = [26, 22, 24, 24, 24, 24, 24, 24]; // Total ~192mm, fits in 215.9mm
-      const rowHeight = 7; // More space for larger font
-      const headers = ['Gregorian', 'Hijri', 'Fajr (AM)', 'Sunrise', 'Dhuhr (PM)', 'Asr (PM)', 'Maghrib', 'Isha (PM)'];
+      const colWidths = [26, 22, 26, 26, 26, 26, 26, 26]; // Slightly wider for AM/PM
+      const rowHeight = 7;
+      const headers = ['Gregorian', 'Hijri', 'Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
       // Draw header row
       pdf.setFillColor(26, 71, 55);
@@ -256,12 +257,9 @@ export function ExportButton({ hijriYear, hijriMonth, method }: ExportButtonProp
         const y = tableTop + rowHeight + 1 + index * rowHeight;
         const isFriday = dayData.date.getDay() === 5;
 
-        // Alternate row background
+        // Yellow background only for Fridays
         if (isFriday) {
           pdf.setFillColor(252, 248, 230);
-          pdf.rect(tableMarginLeft, y, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
-        } else if (index % 2 === 0) {
-          pdf.setFillColor(248, 248, 248);
           pdf.rect(tableMarginLeft, y, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
         }
 
