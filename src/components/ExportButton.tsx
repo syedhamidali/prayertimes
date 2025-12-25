@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, Loader2, Calendar, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import { HIJRI_MONTHS, CalculationMethod, CALCULATION_METHODS, getMonthDays, WEEKDAYS, GREGORIAN_MONTHS } from '@/lib/hijriUtils';
-import { fetchPrayerTimesFromAladhan } from '@/lib/aladhanApi';
+import { fetchPrayerTimesFromAladhan, AladhanHijriDate } from '@/lib/aladhanApi';
 import { PRAYER_METHODS, type PrayerMethod } from '@/lib/prayerTimes';
 
 interface ExportButtonProps {
@@ -14,6 +14,7 @@ interface ExportButtonProps {
   userLocation?: { latitude: number; longitude: number; cityName: string };
   prayerMethod?: PrayerMethod;
   cityLabel?: string;
+  apiHijriDate?: AladhanHijriDate; // For Hijri↔Gregorian alignment from Al-Adhan API
 }
 
 // Convert 24h time to 12h format with AM/PM
@@ -57,16 +58,44 @@ async function getLocationInfo(providedLocation?: { latitude: number; longitude:
   return { latitude, longitude, cityName };
 }
 
-export function ExportButton({ hijriYear, hijriMonth, method, userLocation, prayerMethod, cityLabel }: ExportButtonProps) {
+export function ExportButton({ hijriYear, hijriMonth, method, userLocation, prayerMethod, cityLabel, apiHijriDate }: ExportButtonProps) {
   const [isExportingCalendar, setIsExportingCalendar] = useState(false);
   const [isExportingPrayer, setIsExportingPrayer] = useState(false);
+
+  // Helper to adjust days based on API's Hijri↔Gregorian alignment
+  const getAdjustedDays = (days: ReturnType<typeof getMonthDays>) => {
+    if (!apiHijriDate?.gregorian) return days;
+
+    // Find the day matching the API's current Hijri day
+    const target = days.find((d) => d.hijriDay === apiHijriDate.day);
+    if (!target) return days;
+
+    const apiG = new Date(
+      apiHijriDate.gregorian.year,
+      apiHijriDate.gregorian.month - 1,
+      apiHijriDate.gregorian.day
+    );
+    apiG.setHours(0, 0, 0, 0);
+
+    const computedG = new Date(target.gregorianDate);
+    computedG.setHours(0, 0, 0, 0);
+
+    const deltaMs = apiG.getTime() - computedG.getTime();
+    if (deltaMs === 0) return days;
+
+    return days.map((d) => ({
+      ...d,
+      gregorianDate: new Date(d.gregorianDate.getTime() + deltaMs),
+    }));
+  };
 
   const handleExportCalendar = async () => {
     setIsExportingCalendar(true);
     toast.loading('Generating Calendar PDF...', { id: 'export-calendar' });
 
     try {
-      const days = getMonthDays(hijriYear, hijriMonth, method);
+      const rawDays = getMonthDays(hijriYear, hijriMonth, method);
+      const days = getAdjustedDays(rawDays);
       const methodLabel = CALCULATION_METHODS.find(m => m.value === method)?.label || method;
       const { cityName: fallbackCity } = await getLocationInfo(userLocation);
       const displayCity = cityLabel || fallbackCity;
@@ -198,7 +227,8 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
     toast.loading('Generating Prayer Times PDF...', { id: 'export-prayer' });
 
     try {
-      const days = getMonthDays(hijriYear, hijriMonth, method);
+      const rawDays = getMonthDays(hijriYear, hijriMonth, method);
+      const days = getAdjustedDays(rawDays);
       const prayerMethodToUse = prayerMethod ?? (method as any);
       const methodLabel = PRAYER_METHODS[prayerMethodToUse as PrayerMethod]?.name ??
         CALCULATION_METHODS.find(m => m.value === method)?.label ??
