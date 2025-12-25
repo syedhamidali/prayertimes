@@ -7,12 +7,31 @@ interface CalendarGridProps {
   hijriMonth: number;
   method: CalculationMethod;
   timezoneOffset?: number;
+  currentHijriDay?: number; // From API - the accurate current day
+  currentHijriMonth?: number; // From API - the accurate current month
+  currentHijriYear?: number; // From API - the accurate current year
 }
 
-export function CalendarGrid({ hijriYear, hijriMonth, method, timezoneOffset }: CalendarGridProps) {
+export function CalendarGrid({ 
+  hijriYear, 
+  hijriMonth, 
+  method, 
+  timezoneOffset,
+  currentHijriDay,
+  currentHijriMonth,
+  currentHijriYear
+}: CalendarGridProps) {
   const days = useMemo(() => {
     return getMonthDays(hijriYear, hijriMonth, method, timezoneOffset);
   }, [hijriYear, hijriMonth, method, timezoneOffset]);
+
+  // Determine if a day is today based on API data (if available) or fallback to calculated
+  const isTodayFromApi = (hijriDay: number): boolean => {
+    if (currentHijriDay !== undefined && currentHijriMonth !== undefined && currentHijriYear !== undefined) {
+      return hijriDay === currentHijriDay && hijriMonth === currentHijriMonth && hijriYear === currentHijriYear;
+    }
+    return false;
+  };
 
   // Calculate the starting day of the week
   const firstDayOfWeek = useMemo(() => {
@@ -83,13 +102,15 @@ export function CalendarGrid({ hijriYear, hijriMonth, method, timezoneOffset }: 
           {/* Actual days */}
           {days.map((day, index) => {
             const isFriday = day.gregorianDate.getDay() === 5;
+            // Use API-based today check if available, otherwise fall back to calculated
+            const isToday = isTodayFromApi(day.hijriDay) || (currentHijriDay === undefined && day.isToday);
             
             return (
               <div
                 key={index}
                 className={cn(
                   "aspect-square p-1.5 sm:p-2.5 rounded-2xl transition-all duration-300 flex flex-col items-center justify-center gap-0.5 group cursor-default",
-                  day.isToday
+                  isToday
                     ? "bg-gradient-to-br from-primary via-primary to-emerald-dark text-primary-foreground shadow-lg shadow-primary/30 scale-105"
                     : isFriday
                     ? "bg-gradient-to-br from-gold/15 to-gold/5 hover:from-gold/25 hover:to-gold/10"
@@ -99,7 +120,7 @@ export function CalendarGrid({ hijriYear, hijriMonth, method, timezoneOffset }: 
                 <span
                   className={cn(
                     "text-lg sm:text-2xl font-bold font-display transition-transform duration-300 group-hover:scale-110",
-                    day.isToday 
+                    isToday 
                       ? "text-primary-foreground" 
                       : isFriday 
                       ? "text-primary" 
@@ -111,7 +132,7 @@ export function CalendarGrid({ hijriYear, hijriMonth, method, timezoneOffset }: 
                 <span
                   className={cn(
                     "text-[9px] sm:text-xs font-medium",
-                    day.isToday ? "text-primary-foreground/80" : "text-muted-foreground"
+                    isToday ? "text-primary-foreground/80" : "text-muted-foreground"
                   )}
                 >
                   {day.gregorianDate.getDate()} {GREGORIAN_MONTHS[day.gregorianDate.getMonth()].slice(0, 3)}

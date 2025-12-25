@@ -32,13 +32,18 @@ import {
   getTimezoneFromLongitude,
   formatTimezone,
 } from '@/lib/prayerTimes';
-import { fetchPrayerTimesFromAladhan } from '@/lib/aladhanApi';
+import { fetchPrayerTimesFromAladhan, fetchCurrentHijriDate, AladhanHijriDate } from '@/lib/aladhanApi';
 import { LocationMap } from '@/components/LocationMap';
 import { cn } from '@/lib/utils';
 
 interface PrayerTimesCardProps {
   selectedDate: Date;
-  onPreferencesChange?: (prefs: { location: Location; cityLabel: string; method: PrayerMethod }) => void;
+  onPreferencesChange?: (prefs: { 
+    location: Location; 
+    cityLabel: string; 
+    method: PrayerMethod;
+    currentHijriDate?: AladhanHijriDate;
+  }) => void;
 }
 
 const PRAYER_INFO = [
@@ -56,6 +61,7 @@ export function PrayerTimesCard({ selectedDate, onPreferencesChange }: PrayerTim
   const [resolvedCity, setResolvedCity] = useState<string>('');
   const [prayerMethod, setPrayerMethod] = useState<PrayerMethod>('leva-qom');
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
+  const [currentHijriDate, setCurrentHijriDate] = useState<AladhanHijriDate | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [currentPrayer, setCurrentPrayer] = useState<string | null>(null);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
@@ -119,6 +125,26 @@ export function PrayerTimesCard({ selectedDate, onPreferencesChange }: PrayerTim
     };
   }, [location.latitude, location.longitude, location.city, selectedCity]);
 
+  // Fetch current Hijri date from Al-Adhan API when location changes
+  useEffect(() => {
+    if (!location) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const hijriDate = await fetchCurrentHijriDate(location);
+        if (!cancelled) setCurrentHijriDate(hijriDate);
+      } catch {
+        // If API fails, clear the date
+        if (!cancelled) setCurrentHijriDate(undefined);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location]);
+
   // Notify parent when preferences change (for PDF export, etc.)
   useEffect(() => {
     const cityLabel =
@@ -131,8 +157,9 @@ export function PrayerTimesCard({ selectedDate, onPreferencesChange }: PrayerTim
       location,
       cityLabel,
       method: prayerMethod,
+      currentHijriDate,
     });
-  }, [location, selectedCity, resolvedCity, prayerMethod, onPreferencesChange]);
+  }, [location, selectedCity, resolvedCity, prayerMethod, currentHijriDate, onPreferencesChange]);
 
   // Fetch prayer times when location, date, or method changes
   useEffect(() => {

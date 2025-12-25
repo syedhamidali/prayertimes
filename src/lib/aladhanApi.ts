@@ -57,6 +57,14 @@ export function toAladhanMethodId(method: PrayerMethod | string): number {
   }
 }
 
+export interface AladhanHijriDate {
+  day: number;
+  month: number;
+  year: number;
+  monthName: string;
+  monthNameArabic: string;
+}
+
 export async function fetchPrayerTimesFromAladhan(opts: {
   date: Date;
   location: Location;
@@ -91,5 +99,33 @@ export async function fetchPrayerTimesFromAladhan(opts: {
     asr: stripTime(timings.Asr),
     maghrib: stripTime(timings.Maghrib),
     isha: stripTime(timings.Isha),
+  };
+}
+
+// Fetch current Hijri date from Al-Adhan API for a specific location
+export async function fetchCurrentHijriDate(location: Location): Promise<AladhanHijriDate> {
+  const today = new Date();
+  const url = new URL(`https://api.aladhan.com/v1/timings/${formatDateForAladhan(today)}`);
+  url.searchParams.set("latitude", String(location.latitude));
+  url.searchParams.set("longitude", String(location.longitude));
+  url.searchParams.set("method", "0"); // Method doesn't affect date
+
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    throw new Error(`AlAdhan request failed: ${res.status}`);
+  }
+
+  const json = await res.json();
+  const hijri = json?.data?.date?.hijri;
+  if (!hijri) {
+    throw new Error("AlAdhan response missing hijri date");
+  }
+
+  return {
+    day: parseInt(hijri.day, 10),
+    month: hijri.month.number,
+    year: parseInt(hijri.year, 10),
+    monthName: hijri.month.en,
+    monthNameArabic: hijri.month.ar,
   };
 }
