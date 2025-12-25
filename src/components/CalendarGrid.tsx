@@ -10,6 +10,7 @@ interface CalendarGridProps {
   currentHijriDay?: number; // From API - the accurate current day
   currentHijriMonth?: number; // From API - the accurate current month
   currentHijriYear?: number; // From API - the accurate current year
+  currentGregorianDate?: { day: number; month: number; year: number }; // From API (for exact Hijri↔Gregorian alignment)
 }
 
 export function CalendarGrid({ 
@@ -19,11 +20,39 @@ export function CalendarGrid({
   timezoneOffset,
   currentHijriDay,
   currentHijriMonth,
-  currentHijriYear
+  currentHijriYear,
+  currentGregorianDate,
 }: CalendarGridProps) {
   const days = useMemo(() => {
     return getMonthDays(hijriYear, hijriMonth, method, timezoneOffset);
   }, [hijriYear, hijriMonth, method, timezoneOffset]);
+
+  // If we have the API's exact Gregorian date for "today", align the whole grid's
+  // Hijri↔Gregorian mapping by shifting all computed Gregorian dates by the same delta.
+  const adjustedDays = useMemo(() => {
+    if (!currentGregorianDate || currentHijriDay === undefined) return days;
+
+    const target = days.find((d) => d.hijriDay === currentHijriDay);
+    if (!target) return days;
+
+    const apiG = new Date(
+      currentGregorianDate.year,
+      currentGregorianDate.month - 1,
+      currentGregorianDate.day
+    );
+    apiG.setHours(0, 0, 0, 0);
+
+    const computedG = new Date(target.gregorianDate);
+    computedG.setHours(0, 0, 0, 0);
+
+    const deltaMs = apiG.getTime() - computedG.getTime();
+    if (deltaMs === 0) return days;
+
+    return days.map((d) => ({
+      ...d,
+      gregorianDate: new Date(d.gregorianDate.getTime() + deltaMs),
+    }));
+  }, [days, currentGregorianDate, currentHijriDay]);
 
   // Determine if a day is today based on API data (if available) or fallback to calculated
   const isTodayFromApi = (hijriDay: number): boolean => {
@@ -35,27 +64,27 @@ export function CalendarGrid({
 
   // Calculate the starting day of the week
   const firstDayOfWeek = useMemo(() => {
-    if (days.length === 0) return 0;
-    return days[0].gregorianDate.getDay();
-  }, [days]);
+    if (adjustedDays.length === 0) return 0;
+    return adjustedDays[0].gregorianDate.getDay();
+  }, [adjustedDays]);
 
   // Get Gregorian month span info
   const gregorianMonthSpan = useMemo(() => {
-    if (days.length === 0) return '';
-    const firstDate = days[0].gregorianDate;
-    const lastDate = days[days.length - 1].gregorianDate;
+    if (adjustedDays.length === 0) return '';
+    const firstDate = adjustedDays[0].gregorianDate;
+    const lastDate = adjustedDays[adjustedDays.length - 1].gregorianDate;
     const firstMonth = GREGORIAN_MONTHS[firstDate.getMonth()];
     const lastMonth = GREGORIAN_MONTHS[lastDate.getMonth()];
     const firstYear = firstDate.getFullYear();
     const lastYear = lastDate.getFullYear();
-    
+
     if (firstMonth === lastMonth && firstYear === lastYear) {
       return `${firstMonth} ${firstYear}`;
     } else if (firstYear === lastYear) {
       return `${firstMonth} - ${lastMonth} ${firstYear}`;
     }
     return `${firstMonth} ${firstYear} - ${lastMonth} ${lastYear}`;
-  }, [days]);
+  }, [adjustedDays]);
 
   // Create empty cells for alignment
   const emptyCells = Array(firstDayOfWeek).fill(null);
@@ -100,7 +129,7 @@ export function CalendarGrid({
           ))}
           
           {/* Actual days */}
-          {days.map((day, index) => {
+          {adjustedDays.map((day, index) => {
             const isFriday = day.gregorianDate.getDay() === 5;
             // Use API-based today check if available, otherwise fall back to calculated
             const isToday = isTodayFromApi(day.hijriDay) || (currentHijriDay === undefined && day.isToday);

@@ -278,6 +278,7 @@ const Index = () => {
                 currentHijriDay={apiHijriDate?.day}
                 currentHijriMonth={apiHijriDate?.month}
                 currentHijriYear={apiHijriDate?.year}
+                currentGregorianDate={apiHijriDate?.gregorian}
               />
             </div>
           </div>
