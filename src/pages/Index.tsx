@@ -6,6 +6,7 @@ import { ExportButton } from '@/components/ExportButton';
 import { PrayerTimesCard } from '@/components/PrayerTimesCard';
 import { getCurrentHijriDate, CalculationMethod, formatHijriDate, hijriToGregorian } from '@/lib/hijriUtils';
 import type { Location as PrayerLocation, PrayerMethod } from '@/lib/prayerTimes';
+import { getTimezoneFromLongitude } from '@/lib/prayerTimes';
 import { Moon, Star, MapPin } from 'lucide-react';
 
 interface LocationInfo {
@@ -21,6 +22,7 @@ const Index = () => {
   const [hijriYear, setHijriYear] = useState(1446);
   const [hijriMonth, setHijriMonth] = useState(6);
   const [location, setLocation] = useState<LocationInfo>({ loading: true });
+  const [timezoneOffset, setTimezoneOffset] = useState<number | undefined>(undefined);
   const [exportPrefs, setExportPrefs] = useState<{
     location: PrayerLocation;
     cityLabel: string;
@@ -33,16 +35,20 @@ const Index = () => {
 
   // Get location and initialize with current Hijri date
   useEffect(() => {
-    const current = getCurrentHijriDate(method);
-    setHijriYear(current.year);
-    setHijriMonth(current.month);
-
     // Try to get device location first
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           try {
             const { latitude, longitude } = position.coords;
+            const tz = getTimezoneFromLongitude(longitude);
+            setTimezoneOffset(tz);
+            
+            // Initialize Hijri date with detected timezone
+            const current = getCurrentHijriDate(method, tz);
+            setHijriYear(current.year);
+            setHijriMonth(current.month);
+            
             const response = await fetch(
               `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
             );
@@ -55,6 +61,9 @@ const Index = () => {
               loading: false
             });
           } catch {
+            const current = getCurrentHijriDate(method);
+            setHijriYear(current.year);
+            setHijriMonth(current.month);
             setLocation({ loading: false });
           }
         },
@@ -63,6 +72,14 @@ const Index = () => {
           try {
             const response = await fetch('https://ipapi.co/json/');
             const data = await response.json();
+            const tz = data.utc_offset ? parseFloat(data.utc_offset) / 100 : 
+                       (typeof data.longitude === 'number' ? getTimezoneFromLongitude(data.longitude) : undefined);
+            if (tz !== undefined) setTimezoneOffset(tz);
+            
+            const current = getCurrentHijriDate(method, tz);
+            setHijriYear(current.year);
+            setHijriMonth(current.month);
+            
             setLocation({
               city: data.city,
               country: data.country_name,
@@ -71,6 +88,9 @@ const Index = () => {
               loading: false
             });
           } catch {
+            const current = getCurrentHijriDate(method);
+            setHijriYear(current.year);
+            setHijriMonth(current.month);
             setLocation({ loading: false });
           }
         }
@@ -80,6 +100,14 @@ const Index = () => {
       fetch('https://ipapi.co/json/')
         .then(res => res.json())
         .then(data => {
+          const tz = data.utc_offset ? parseFloat(data.utc_offset) / 100 : 
+                     (typeof data.longitude === 'number' ? getTimezoneFromLongitude(data.longitude) : undefined);
+          if (tz !== undefined) setTimezoneOffset(tz);
+          
+          const current = getCurrentHijriDate(method, tz);
+          setHijriYear(current.year);
+          setHijriMonth(current.month);
+          
           setLocation({
             city: data.city,
             country: data.country_name,
@@ -88,7 +116,12 @@ const Index = () => {
             loading: false
           });
         })
-        .catch(() => setLocation({ loading: false }));
+        .catch(() => {
+          const current = getCurrentHijriDate(method);
+          setHijriYear(current.year);
+          setHijriMonth(current.month);
+          setLocation({ loading: false });
+        });
     }
   }, []);
 
@@ -116,12 +149,20 @@ const Index = () => {
   };
 
   const handleToday = () => {
-    const current = getCurrentHijriDate(method);
+    const current = getCurrentHijriDate(method, timezoneOffset);
     setHijriYear(current.year);
     setHijriMonth(current.month);
   };
 
-  const currentHijri = getCurrentHijriDate(method);
+  // Handle preferences change from PrayerTimesCard (includes timezone)
+  const handlePreferencesChange = (prefs: { location: PrayerLocation; cityLabel: string; method: PrayerMethod }) => {
+    setExportPrefs(prefs);
+    // Update timezone when location changes
+    const tz = prefs.location.timezone ?? getTimezoneFromLongitude(prefs.location.longitude);
+    setTimezoneOffset(tz);
+  };
+
+  const currentHijri = getCurrentHijriDate(method, timezoneOffset);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/20">
@@ -213,13 +254,14 @@ const Index = () => {
                 hijriYear={hijriYear}
                 hijriMonth={hijriMonth}
                 method={method}
+                timezoneOffset={timezoneOffset}
               />
             </div>
           </div>
 
           {/* Prayer Times - takes 1 column on large screens */}
           <div className="lg:col-span-1 space-y-6">
-            <PrayerTimesCard selectedDate={selectedDate} onPreferencesChange={setExportPrefs} />
+            <PrayerTimesCard selectedDate={selectedDate} onPreferencesChange={handlePreferencesChange} />
             
             {/* Info Section */}
             <div className="bg-gradient-to-br from-card via-card to-secondary/30 rounded-3xl shadow-card border border-border/50 p-6 animate-slide-up" style={{ animationDelay: '0.25s' }}>

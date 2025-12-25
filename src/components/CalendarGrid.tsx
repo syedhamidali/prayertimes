@@ -6,12 +6,13 @@ interface CalendarGridProps {
   hijriYear: number;
   hijriMonth: number;
   method: CalculationMethod;
+  timezoneOffset?: number;
 }
 
-export function CalendarGrid({ hijriYear, hijriMonth, method }: CalendarGridProps) {
+export function CalendarGrid({ hijriYear, hijriMonth, method, timezoneOffset }: CalendarGridProps) {
   const days = useMemo(() => {
-    return getMonthDays(hijriYear, hijriMonth, method);
-  }, [hijriYear, hijriMonth, method]);
+    return getMonthDays(hijriYear, hijriMonth, method, timezoneOffset);
+  }, [hijriYear, hijriMonth, method, timezoneOffset]);
 
   // Calculate the starting day of the week
   const firstDayOfWeek = useMemo(() => {

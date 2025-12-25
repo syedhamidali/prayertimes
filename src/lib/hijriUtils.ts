@@ -106,14 +106,24 @@ export function isHijriLeapYear(year: number): boolean {
 }
 
 // Get all days in a Hijri month with their Gregorian equivalents
-export function getMonthDays(hijriYear: number, hijriMonth: number, method: CalculationMethod): {
+export function getMonthDays(hijriYear: number, hijriMonth: number, method: CalculationMethod, timezoneOffset?: number): {
   hijriDay: number;
   gregorianDate: Date;
   isToday: boolean;
 }[] {
   const days: { hijriDay: number; gregorianDate: Date; isToday: boolean }[] = [];
   const numDays = getHijriMonthDays(hijriYear, hijriMonth);
-  const today = new Date();
+  
+  // Get today's date in the specified timezone
+  const now = new Date();
+  let today: Date;
+  if (timezoneOffset !== undefined) {
+    const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+    const localTime = utcTime + timezoneOffset * 3600000;
+    today = new Date(localTime);
+  } else {
+    today = now;
+  }
   today.setHours(0, 0, 0, 0);
   
   for (let day = 1; day <= numDays; day++) {
@@ -129,9 +139,31 @@ export function getMonthDays(hijriYear: number, hijriMonth: number, method: Calc
   return days;
 }
 
-// Get current Hijri date
-export function getCurrentHijriDate(method: CalculationMethod = 'leva'): { year: number; month: number; day: number } {
-  return gregorianToHijri(new Date(), method);
+// Get current Hijri date (optionally in a specific timezone)
+export function getCurrentHijriDate(method: CalculationMethod = 'leva', timezoneOffset?: number): { year: number; month: number; day: number } {
+  const now = new Date();
+  
+  // If timezone offset is provided, calculate the local date in that timezone
+  if (timezoneOffset !== undefined) {
+    const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+    const localTime = utcTime + timezoneOffset * 3600000;
+    return gregorianToHijri(new Date(localTime), method);
+  }
+  
+  return gregorianToHijri(now, method);
+}
+
+// Get current date in a specific timezone
+export function getCurrentDateInTimezone(timezoneOffset?: number): Date {
+  const now = new Date();
+  
+  if (timezoneOffset !== undefined) {
+    const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+    const localTime = utcTime + timezoneOffset * 3600000;
+    return new Date(localTime);
+  }
+  
+  return now;
 }
 
 // Helper functions for calendar calculations
