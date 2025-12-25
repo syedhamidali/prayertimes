@@ -4,9 +4,10 @@ import { CalendarGrid } from '@/components/CalendarGrid';
 import { YearSelector } from '@/components/YearSelector';
 import { ExportButton } from '@/components/ExportButton';
 import { PrayerTimesCard } from '@/components/PrayerTimesCard';
-import { getCurrentHijriDate, CalculationMethod, formatHijriDate, hijriToGregorian } from '@/lib/hijriUtils';
+import { getCurrentHijriDate, CalculationMethod, formatHijriDate, hijriToGregorian, HIJRI_MONTHS } from '@/lib/hijriUtils';
 import type { Location as PrayerLocation, PrayerMethod } from '@/lib/prayerTimes';
 import { getTimezoneFromLongitude } from '@/lib/prayerTimes';
+import type { AladhanHijriDate } from '@/lib/aladhanApi';
 import { Moon, Star, MapPin } from 'lucide-react';
 
 interface LocationInfo {
@@ -23,6 +24,7 @@ const Index = () => {
   const [hijriMonth, setHijriMonth] = useState(6);
   const [location, setLocation] = useState<LocationInfo>({ loading: true });
   const [timezoneOffset, setTimezoneOffset] = useState<number | undefined>(undefined);
+  const [apiHijriDate, setApiHijriDate] = useState<AladhanHijriDate | undefined>(undefined);
   const [exportPrefs, setExportPrefs] = useState<{
     location: PrayerLocation;
     cityLabel: string;
@@ -149,20 +151,38 @@ const Index = () => {
   };
 
   const handleToday = () => {
-    const current = getCurrentHijriDate(method, timezoneOffset);
-    setHijriYear(current.year);
-    setHijriMonth(current.month);
+    // Use API date if available, otherwise fall back to calculated date
+    if (apiHijriDate) {
+      setHijriYear(apiHijriDate.year);
+      setHijriMonth(apiHijriDate.month);
+    } else {
+      const current = getCurrentHijriDate(method, timezoneOffset);
+      setHijriYear(current.year);
+      setHijriMonth(current.month);
+    }
   };
 
-  // Handle preferences change from PrayerTimesCard (includes timezone)
-  const handlePreferencesChange = (prefs: { location: PrayerLocation; cityLabel: string; method: PrayerMethod }) => {
+  // Handle preferences change from PrayerTimesCard (includes timezone and Hijri date from API)
+  const handlePreferencesChange = (prefs: { 
+    location: PrayerLocation; 
+    cityLabel: string; 
+    method: PrayerMethod;
+    currentHijriDate?: AladhanHijriDate;
+  }) => {
     setExportPrefs(prefs);
     // Update timezone when location changes
     const tz = prefs.location.timezone ?? getTimezoneFromLongitude(prefs.location.longitude);
     setTimezoneOffset(tz);
+    // Store the API Hijri date
+    if (prefs.currentHijriDate) {
+      setApiHijriDate(prefs.currentHijriDate);
+    }
   };
 
-  const currentHijri = getCurrentHijriDate(method, timezoneOffset);
+  // Use API date for header display, fall back to calculated date
+  const currentHijri = apiHijriDate 
+    ? { year: apiHijriDate.year, month: apiHijriDate.month, day: apiHijriDate.day }
+    : getCurrentHijriDate(method, timezoneOffset);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/20">
@@ -255,6 +275,9 @@ const Index = () => {
                 hijriMonth={hijriMonth}
                 method={method}
                 timezoneOffset={timezoneOffset}
+                currentHijriDay={apiHijriDate?.day}
+                currentHijriMonth={apiHijriDate?.month}
+                currentHijriYear={apiHijriDate?.year}
               />
             </div>
           </div>
