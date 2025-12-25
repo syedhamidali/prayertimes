@@ -254,6 +254,7 @@ const Index = () => {
                 longitude: exportPrefs.location.longitude,
                 cityName: exportPrefs.cityLabel,
               }}
+              apiHijriDate={apiHijriDate}
             />
           </div>
         </div>
