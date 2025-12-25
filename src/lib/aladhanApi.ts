@@ -63,6 +63,14 @@ export interface AladhanHijriDate {
   year: number;
   monthName: string;
   monthNameArabic: string;
+  // Gregorian date that this Hijri date corresponds to (per Al-Adhan)
+  gregorian: {
+    day: number;
+    month: number;
+    year: number;
+  };
+  // IANA timezone name returned by the API (e.g. "Asia/Riyadh")
+  timezone?: string;
 }
 
 export async function fetchPrayerTimesFromAladhan(opts: {
@@ -121,11 +129,19 @@ export async function fetchCurrentHijriDate(location: Location): Promise<Aladhan
     throw new Error("AlAdhan response missing hijri date");
   }
 
+  const gregorian = json?.data?.date?.gregorian;
+
   return {
     day: parseInt(hijri.day, 10),
     month: hijri.month.number,
     year: parseInt(hijri.year, 10),
     monthName: hijri.month.en,
     monthNameArabic: hijri.month.ar,
+    gregorian: {
+      day: parseInt(gregorian?.day ?? String(today.getDate()), 10),
+      month: Number(gregorian?.month?.number ?? today.getMonth() + 1),
+      year: parseInt(gregorian?.year ?? String(today.getFullYear()), 10),
+    },
+    timezone: json?.data?.meta?.timezone,
   };
 }
