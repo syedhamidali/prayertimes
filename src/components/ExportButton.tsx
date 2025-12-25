@@ -63,10 +63,11 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
   const [isExportingPrayer, setIsExportingPrayer] = useState(false);
 
   // Helper to adjust days based on API's Hijri↔Gregorian alignment
+  // and also ensure the "today" highlight matches the API (not the viewer's device timezone).
   const getAdjustedDays = (days: ReturnType<typeof getMonthDays>) => {
     if (!apiHijriDate?.gregorian) return days;
 
-    // Find the day matching the API's current Hijri day
+    // Find the day matching the API's current Hijri day (within this month)
     const target = days.find((d) => d.hijriDay === apiHijriDate.day);
     if (!target) return days;
 
@@ -81,12 +82,16 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
     computedG.setHours(0, 0, 0, 0);
 
     const deltaMs = apiG.getTime() - computedG.getTime();
-    if (deltaMs === 0) return days;
 
-    return days.map((d) => ({
-      ...d,
-      gregorianDate: new Date(d.gregorianDate.getTime() + deltaMs),
-    }));
+    return days.map((d) => {
+      const g = new Date(d.gregorianDate.getTime() + deltaMs);
+      g.setHours(0, 0, 0, 0);
+      return {
+        ...d,
+        gregorianDate: g,
+        isToday: g.getTime() === apiG.getTime(),
+      };
+    });
   };
 
   const handleExportCalendar = async () => {
