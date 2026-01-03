@@ -29,8 +29,13 @@ export function CalendarGrid({
 
   // If we have the API's exact Gregorian date for "today", align the whole grid's
   // Hijri↔Gregorian mapping by shifting all computed Gregorian dates by the same delta.
+  // IMPORTANT: only apply this shift when the user is viewing the *same Hijri month/year*
+  // as the API "today" month/year. Otherwise we'd incorrectly shift every month because
+  // every month contains a "day 5", "day 10", etc.
   const adjustedDays = useMemo(() => {
     if (!currentGregorianDate || currentHijriDay === undefined) return days;
+    if (currentHijriMonth === undefined || currentHijriYear === undefined) return days;
+    if (hijriMonth !== currentHijriMonth || hijriYear !== currentHijriYear) return days;
 
     const target = days.find((d) => d.hijriDay === currentHijriDay);
     if (!target) return days;
@@ -52,7 +57,7 @@ export function CalendarGrid({
       ...d,
       gregorianDate: new Date(d.gregorianDate.getTime() + deltaMs),
     }));
-  }, [days, currentGregorianDate, currentHijriDay]);
+  }, [days, currentGregorianDate, currentHijriDay, currentHijriMonth, currentHijriYear, hijriMonth, hijriYear]);
 
   // Determine if a day is today based on API data (if available) or fallback to calculated
   const isTodayFromApi = (hijriDay: number): boolean => {

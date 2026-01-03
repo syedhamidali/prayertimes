@@ -64,8 +64,10 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
 
   // Helper to adjust days based on API's Hijri↔Gregorian alignment
   // and also ensure the "today" highlight matches the API (not the viewer's device timezone).
+  // IMPORTANT: only apply this shift when exporting the same Hijri month/year as the API "today".
   const getAdjustedDays = (days: ReturnType<typeof getMonthDays>) => {
     if (!apiHijriDate?.gregorian) return days;
+    if (apiHijriDate.year !== hijriYear || apiHijriDate.month !== hijriMonth) return days;
 
     // Find the day matching the API's current Hijri day (within this month)
     const target = days.find((d) => d.hijriDay === apiHijriDate.day);
