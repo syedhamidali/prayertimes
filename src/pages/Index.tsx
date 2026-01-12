@@ -22,6 +22,7 @@ const Index = () => {
   const method: CalculationMethod = 'leva';
   const [hijriYear, setHijriYear] = useState(1446);
   const [hijriMonth, setHijriMonth] = useState(6);
+  const [selectedHijriDay, setSelectedHijriDay] = useState<number>(1);
   const [location, setLocation] = useState<LocationInfo>({ loading: true });
   const [timezoneOffset, setTimezoneOffset] = useState<number | undefined>(undefined);
   const [apiHijriDate, setApiHijriDate] = useState<AladhanHijriDate | undefined>(undefined);
@@ -50,6 +51,7 @@ const Index = () => {
             const current = getCurrentHijriDate(method, tz);
             setHijriYear(current.year);
             setHijriMonth(current.month);
+            setSelectedHijriDay(current.day);
             
             const response = await fetch(
               `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
@@ -66,6 +68,7 @@ const Index = () => {
             const current = getCurrentHijriDate(method);
             setHijriYear(current.year);
             setHijriMonth(current.month);
+            setSelectedHijriDay(current.day);
             setLocation({ loading: false });
           }
         },
@@ -81,6 +84,7 @@ const Index = () => {
             const current = getCurrentHijriDate(method, tz);
             setHijriYear(current.year);
             setHijriMonth(current.month);
+            setSelectedHijriDay(current.day);
             
             setLocation({
               city: data.city,
@@ -109,6 +113,7 @@ const Index = () => {
           const current = getCurrentHijriDate(method, tz);
           setHijriYear(current.year);
           setHijriMonth(current.month);
+          setSelectedHijriDay(current.day);
           
           setLocation({
             city: data.city,
@@ -127,10 +132,32 @@ const Index = () => {
     }
   }, []);
 
-  // Get the first day of the currently selected Hijri month as Gregorian date
+  // Get the selected Gregorian date based on Hijri year, month, and day
   const selectedDate = useMemo(() => {
-    return hijriToGregorian(hijriYear, hijriMonth, 1, method);
-  }, [hijriYear, hijriMonth, method]);
+    // Calculate the base Gregorian date from the Hijri date
+    let date = hijriToGregorian(hijriYear, hijriMonth, selectedHijriDay, method);
+
+    // Apply correction if API date is available to sync with calendar grid
+    // The calendar grid shifts dates to align "Today" with the API's Gregorian date
+    if (apiHijriDate && apiHijriDate.year === hijriYear && apiHijriDate.month === hijriMonth) {
+      const apiDay = apiHijriDate.day;
+      const calculatedDateForApiDay = hijriToGregorian(hijriYear, hijriMonth, apiDay, method);
+
+      const apiGregorian = new Date(apiHijriDate.gregorian.year, apiHijriDate.gregorian.month - 1, apiHijriDate.gregorian.day);
+
+      // Normalize times to 00:00:00 to avoid timezone artifacts in diff
+      calculatedDateForApiDay.setHours(0, 0, 0, 0);
+      apiGregorian.setHours(0, 0, 0, 0);
+
+      const diff = apiGregorian.getTime() - calculatedDateForApiDay.getTime();
+
+      if (diff !== 0) {
+        date = new Date(date.getTime() + diff);
+      }
+    }
+
+    return date;
+  }, [hijriYear, hijriMonth, selectedHijriDay, method, apiHijriDate]);
 
   const handlePrevMonth = () => {
     if (hijriMonth === 1) {
@@ -139,6 +166,7 @@ const Index = () => {
     } else {
       setHijriMonth(hijriMonth - 1);
     }
+    setSelectedHijriDay(1); // Reset day when changing month
   };
 
   const handleNextMonth = () => {
@@ -148,6 +176,7 @@ const Index = () => {
     } else {
       setHijriMonth(hijriMonth + 1);
     }
+    setSelectedHijriDay(1); // Reset day when changing month
   };
 
   const handleToday = () => {
@@ -155,10 +184,12 @@ const Index = () => {
     if (apiHijriDate) {
       setHijriYear(apiHijriDate.year);
       setHijriMonth(apiHijriDate.month);
+      setSelectedHijriDay(apiHijriDate.day);
     } else {
       const current = getCurrentHijriDate(method, timezoneOffset);
       setHijriYear(current.year);
       setHijriMonth(current.month);
+      setSelectedHijriDay(current.day);
     }
   };
 
@@ -280,6 +311,8 @@ const Index = () => {
                 currentHijriMonth={apiHijriDate?.month}
                 currentHijriYear={apiHijriDate?.year}
                 currentGregorianDate={apiHijriDate?.gregorian}
+                selectedHijriDay={selectedHijriDay}
+                onDaySelect={setSelectedHijriDay}
               />
             </div>
           </div>

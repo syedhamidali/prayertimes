@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Clock, MapPin, Loader2, Sun, Sunrise, Sunset, Moon, Map, Edit3, Globe } from 'lucide-react';
+import { Clock, MapPin, Loader2, Sun, Sunrise, Sunset, Moon, Map, Edit3, Globe, Calendar as CalendarIcon } from 'lucide-react';
+import { GREGORIAN_MONTHS } from '@/lib/hijriUtils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -271,10 +272,16 @@ export function PrayerTimesCard({ selectedDate, onPreferencesChange }: PrayerTim
               <h3 className="font-display text-xl font-bold text-foreground">
                 Prayer Times
               </h3>
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Globe className="h-3 w-3" />
-                {formatTimezone(currentTimezone)} Local Time
-              </p>
+              <div className="flex flex-col gap-0.5">
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <CalendarIcon className="h-3 w-3" />
+                  {selectedDate.getDate()} {GREGORIAN_MONTHS[selectedDate.getMonth()]} {selectedDate.getFullYear()}
+                </p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Globe className="h-3 w-3" />
+                  {formatTimezone(currentTimezone)} Local Time
+                </p>
+              </div>
             </div>
           </div>
           <Button
