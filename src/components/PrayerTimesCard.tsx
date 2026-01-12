@@ -31,8 +31,9 @@ import {
   PrayerMethod,
   getTimezoneFromLongitude,
   formatTimezone,
+  calculatePrayerTimes,
 } from '@/lib/prayerTimes';
-import { fetchPrayerTimesFromAladhan, fetchCurrentHijriDate, AladhanHijriDate } from '@/lib/aladhanApi';
+import { fetchCurrentHijriDate, AladhanHijriDate } from '@/lib/aladhanApi';
 import { LocationMap } from '@/components/LocationMap';
 import { cn } from '@/lib/utils';
 
@@ -165,23 +166,13 @@ export function PrayerTimesCard({ selectedDate, onPreferencesChange }: PrayerTim
   useEffect(() => {
     if (!location) return;
 
-    let cancelled = false;
-    (async () => {
-      try {
-        const times = await fetchPrayerTimesFromAladhan({
-          date: selectedDate,
-          location,
-          method: prayerMethod,
-        });
-        if (!cancelled) setPrayerTimes(times);
-      } catch {
-        // If API is unavailable, keep the last known times.
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    // Use local calculation instead of API
+    try {
+      const times = calculatePrayerTimes(selectedDate, location, prayerMethod);
+      setPrayerTimes(times);
+    } catch (e) {
+      console.error("Error calculating prayer times", e);
+    }
   }, [location, selectedDate, prayerMethod]);
 
   // Determine current prayer (based on location's local time)
