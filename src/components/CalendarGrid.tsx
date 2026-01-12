@@ -11,8 +11,6 @@ interface CalendarGridProps {
   currentHijriMonth?: number; // From API - the accurate current month
   currentHijriYear?: number; // From API - the accurate current year
   currentGregorianDate?: { day: number; month: number; year: number }; // From API (for exact Hijri↔Gregorian alignment)
-  selectedHijriDay?: number;
-  onDaySelect?: (day: number) => void;
 }
 
 export function CalendarGrid({ 
@@ -24,8 +22,6 @@ export function CalendarGrid({
   currentHijriMonth,
   currentHijriYear,
   currentGregorianDate,
-  selectedHijriDay,
-  onDaySelect,
 }: CalendarGridProps) {
   const days = useMemo(() => {
     return getMonthDays(hijriYear, hijriMonth, method, timezoneOffset);
@@ -142,18 +138,14 @@ export function CalendarGrid({
             const isFriday = day.gregorianDate.getDay() === 5;
             // Use API-based today check if available, otherwise fall back to calculated
             const isToday = isTodayFromApi(day.hijriDay) || (currentHijriDay === undefined && day.isToday);
-            const isSelected = selectedHijriDay === day.hijriDay;
             
             return (
-              <button
+              <div
                 key={index}
-                onClick={() => onDaySelect?.(day.hijriDay)}
                 className={cn(
-                  "aspect-square p-1.5 sm:p-2.5 rounded-2xl transition-all duration-300 flex flex-col items-center justify-center gap-0.5 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50",
-                  isSelected
-                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30 scale-105 ring-2 ring-primary ring-offset-2 ring-offset-background"
-                    : isToday
-                    ? "bg-secondary border-2 border-primary text-foreground"
+                  "aspect-square p-1.5 sm:p-2.5 rounded-2xl transition-all duration-300 flex flex-col items-center justify-center gap-0.5 group cursor-default",
+                  isToday
+                    ? "bg-gradient-to-br from-primary via-primary to-emerald-dark text-primary-foreground shadow-lg shadow-primary/30 scale-105"
                     : isFriday
                     ? "bg-gradient-to-br from-gold/15 to-gold/5 hover:from-gold/25 hover:to-gold/10"
                     : "hover:bg-secondary/80"
@@ -179,7 +171,7 @@ export function CalendarGrid({
                 >
                   {day.gregorianDate.getDate()} {GREGORIAN_MONTHS[day.gregorianDate.getMonth()].slice(0, 3)}
                 </span>
-              </button>
+              </div>
             );
           })}
         </div>

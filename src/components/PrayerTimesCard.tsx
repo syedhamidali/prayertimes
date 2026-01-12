@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, MapPin, Loader2, Sun, Sunrise, Sunset, Moon, Map, Edit3, Globe, Calendar as CalendarIcon } from 'lucide-react';
-import { GREGORIAN_MONTHS } from '@/lib/hijriUtils';
+import { Clock, MapPin, Loader2, Sun, Sunrise, Sunset, Moon, Map, Edit3, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,9 +31,8 @@ import {
   PrayerMethod,
   getTimezoneFromLongitude,
   formatTimezone,
-  calculatePrayerTimes,
 } from '@/lib/prayerTimes';
-import { fetchCurrentHijriDate, AladhanHijriDate } from '@/lib/aladhanApi';
+import { fetchPrayerTimesFromAladhan, fetchCurrentHijriDate, AladhanHijriDate } from '@/lib/aladhanApi';
 import { LocationMap } from '@/components/LocationMap';
 import { cn } from '@/lib/utils';
 
@@ -167,13 +165,23 @@ export function PrayerTimesCard({ selectedDate, onPreferencesChange }: PrayerTim
   useEffect(() => {
     if (!location) return;
 
-    // Use local calculation instead of API
-    try {
-      const times = calculatePrayerTimes(selectedDate, location, prayerMethod);
-      setPrayerTimes(times);
-    } catch (e) {
-      console.error("Error calculating prayer times", e);
-    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const times = await fetchPrayerTimesFromAladhan({
+          date: selectedDate,
+          location,
+          method: prayerMethod,
+        });
+        if (!cancelled) setPrayerTimes(times);
+      } catch {
+        // If API is unavailable, keep the last known times.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [location, selectedDate, prayerMethod]);
 
   // Determine current prayer (based on location's local time)
@@ -272,16 +280,10 @@ export function PrayerTimesCard({ selectedDate, onPreferencesChange }: PrayerTim
               <h3 className="font-display text-xl font-bold text-foreground">
                 Prayer Times
               </h3>
-              <div className="flex flex-col gap-0.5">
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <CalendarIcon className="h-3 w-3" />
-                  {selectedDate.getDate()} {GREGORIAN_MONTHS[selectedDate.getMonth()]} {selectedDate.getFullYear()}
-                </p>
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Globe className="h-3 w-3" />
-                  {formatTimezone(currentTimezone)} Local Time
-                </p>
-              </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Globe className="h-3 w-3" />
+                {formatTimezone(currentTimezone)} Local Time
+              </p>
             </div>
           </div>
           <Button

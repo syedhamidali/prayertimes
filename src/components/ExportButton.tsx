@@ -4,8 +4,8 @@ import { Download, Loader2, Calendar, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import { HIJRI_MONTHS, CalculationMethod, CALCULATION_METHODS, getMonthDays, WEEKDAYS, GREGORIAN_MONTHS } from '@/lib/hijriUtils';
-import { AladhanHijriDate } from '@/lib/aladhanApi';
-import { PRAYER_METHODS, type PrayerMethod, calculatePrayerTimes } from '@/lib/prayerTimes';
+import { fetchPrayerTimesFromAladhan, AladhanHijriDate } from '@/lib/aladhanApi';
+import { PRAYER_METHODS, type PrayerMethod } from '@/lib/prayerTimes';
 
 interface ExportButtonProps {
   hijriYear: number;
@@ -289,19 +289,21 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
         xPos += colWidths[i];
       });
 
-      // Calculate prayer times for each day
-      const prayerTimesData = days.map(day => {
+      // Fetch prayer times for each day
+      const prayerTimesData: { date: Date; hijriDay: number; times: any }[] = [];
+
+      for (const day of days) {
         try {
-          const times = calculatePrayerTimes(
-            day.gregorianDate,
-            { latitude, longitude },
-            prayerMethodToUse
-          );
-          return { date: day.gregorianDate, hijriDay: day.hijriDay, times };
+            const times = await fetchPrayerTimesFromAladhan({
+              date: day.gregorianDate,
+              location: { latitude, longitude },
+              method: prayerMethodToUse as any,
+            });
+          prayerTimesData.push({ date: day.gregorianDate, hijriDay: day.hijriDay, times });
         } catch {
-          return { date: day.gregorianDate, hijriDay: day.hijriDay, times: null };
+          prayerTimesData.push({ date: day.gregorianDate, hijriDay: day.hijriDay, times: null });
         }
-      });
+      }
 
       // Draw data rows
       pdf.setFont('helvetica', 'normal');
