@@ -127,10 +127,19 @@ const Index = () => {
     }
   }, []);
 
-  // Get the first day of the currently selected Hijri month as Gregorian date
+  // Get the correct Gregorian date for prayer times card
+  // If apiHijriDate is available, use it for accurate alignment; otherwise use today's date
   const selectedDate = useMemo(() => {
-    return hijriToGregorian(hijriYear, hijriMonth, 1, method);
-  }, [hijriYear, hijriMonth, method]);
+    if (apiHijriDate?.gregorian) {
+      return new Date(
+        apiHijriDate.gregorian.year,
+        apiHijriDate.gregorian.month - 1,
+        apiHijriDate.gregorian.day
+      );
+    }
+    // Fallback to today's date
+    return new Date();
+  }, [apiHijriDate]);
 
   const handlePrevMonth = () => {
     if (hijriMonth === 1) {
