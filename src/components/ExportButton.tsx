@@ -380,16 +380,16 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
     if (!showQuranVerse) return startY;
 
     let y = startY;
-    y = addArabicText(pdf, QURAN_VERSE_AR, pdfWidth / 2, y, 14, {
+    y = addArabicText(pdf, QURAN_VERSE_AR, pdfWidth / 2, y, 20, {
       bold: false, color: '#1a4737', maxWidthMm: pdfWidth - 20,
     });
-    y += 1;
+    y += 2;
 
     pdf.setFont('helvetica', 'italic');
-    pdf.setFontSize(9);
+    pdf.setFontSize(10);
     pdf.setTextColor(139, 105, 20);
     pdf.text(QURAN_VERSE_REF, pdfWidth / 2, y, { align: 'center' });
-    y += 3;
+    y += 5;
 
     return y;
   };
@@ -407,7 +407,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
     pdf.setFillColor(26, 71, 55);
     pdf.circle(centerX, y, 1, 'F');
 
-    return y + 4;
+    return y + 6;
   };
 
   const drawLines = async (pdf: jsPDF, pdfWidth: number, linesList: PdfLine[], startY: number) => {
