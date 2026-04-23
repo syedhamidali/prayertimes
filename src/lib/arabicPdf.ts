@@ -12,12 +12,17 @@ async function loadBrowserFonts(): Promise<void> {
   if (browserFontsLoaded) return;
 
   const base = import.meta.env.BASE_URL ?? '/';
-  const regular = new FontFace('Amiri', `url(${base}fonts/Amiri-Regular.ttf)`);
-  const bold = new FontFace('Amiri', `url(${base}fonts/Amiri-Bold.ttf)`, { weight: 'bold' });
+  try {
+    const regular = new FontFace('Amiri', `url(${base}fonts/Amiri-Regular.ttf)`);
+    const bold = new FontFace('Amiri', `url(${base}fonts/Amiri-Bold.ttf)`, { weight: 'bold' });
+    const [r, b] = await Promise.all([regular.load(), bold.load()]);
+    document.fonts.add(r);
+    document.fonts.add(b);
+  } catch {
+    // Local fonts failed — Amiri is loaded from Google Fonts CDN via index.html <link>
+  }
 
-  const [r, b] = await Promise.all([regular.load(), bold.load()]);
-  document.fonts.add(r);
-  document.fonts.add(b);
+  await document.fonts.ready;
   browserFontsLoaded = true;
 }
 
@@ -27,7 +32,7 @@ function renderArabicLine(
   bold: boolean,
   color: string,
 ): { dataUrl: string; pxWidth: number; pxHeight: number } {
-  const scale = 4;
+  const scale = 6;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
 
@@ -36,8 +41,8 @@ function renderArabicLine(
   ctx.font = font;
 
   const metrics = ctx.measureText(text);
-  const textWidth = Math.ceil(metrics.width) + 10;
-  const lineHeight = Math.ceil(fontSize * scale * 1.6);
+  const textWidth = Math.ceil(metrics.width) + 20;
+  const lineHeight = Math.ceil(fontSize * scale * 1.8);
 
   canvas.width = textWidth;
   canvas.height = lineHeight;
@@ -73,7 +78,7 @@ export function addArabicText(
 
   const { dataUrl, pxWidth, pxHeight } = renderArabicLine(text, fontSize, bold, color);
 
-  const scale = 4;
+  const scale = 6;
   let imgWidthMm = pxWidth / scale * 0.264583;
   let imgHeightMm = pxHeight / scale * 0.264583;
 

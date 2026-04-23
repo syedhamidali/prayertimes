@@ -2,9 +2,11 @@ import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -44,6 +46,9 @@ interface PdfLine {
   italic: boolean;
   position: 'header' | 'footer';
 }
+
+const QURAN_VERSE_AR = 'إِنَّ الصَّلَاةَ كَانَتْ عَلَى الْمُؤْمِنِينَ كِتَابًا مَوْقُوتًا';
+const QURAN_VERSE_REF = "Qur'an 4:103";
 
 const PRESET_COLORS = [
   { label: 'Green', value: '#1a4737' },
@@ -100,14 +105,30 @@ async function getLocationInfo(providedLocation?: { latitude: number; longitude:
 
 type ExportType = 'calendar' | 'prayer';
 
-// --- Preview component ---
-function PdfPreview({ lines, exportType }: { lines: PdfLine[]; exportType: ExportType }) {
+function PdfPreview({ lines, exportType, showVerse }: { lines: PdfLine[]; exportType: ExportType; showVerse: boolean }) {
   const headerLines = lines.filter(l => l.position === 'header');
   const footerLines = lines.filter(l => l.position === 'footer');
 
   return (
     <div className="border border-border/50 rounded-xl bg-white shadow-inner overflow-hidden">
       <div className="aspect-[8.5/11] w-full flex flex-col p-3 text-center" style={{ minHeight: 280 }}>
+        {/* Quran verse */}
+        {showVerse && (
+          <div className="flex-shrink-0 mb-1.5">
+            <p style={{ fontSize: 7, color: '#1a4737', fontFamily: "'Amiri', serif", direction: 'rtl', lineHeight: 1.6 }}>
+              {QURAN_VERSE_AR}
+            </p>
+            <p style={{ fontSize: 4.5, color: '#8B6914', fontStyle: 'italic', lineHeight: 1.2 }}>
+              {QURAN_VERSE_REF}
+            </p>
+          </div>
+        )}
+
+        {/* Decorative line */}
+        <div className="flex-shrink-0 flex items-center gap-1 mb-1.5 px-4">
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#1a4737]/30 to-transparent" />
+        </div>
+
         {/* Header area */}
         <div className="flex-shrink-0 space-y-0.5 mb-2">
           {headerLines.map(line => (
@@ -124,14 +145,14 @@ function PdfPreview({ lines, exportType }: { lines: PdfLine[]; exportType: Expor
                 wordBreak: 'break-word',
               }}
             >
-              {line.text || ' '}
+              {line.text || ' '}
             </p>
           ))}
         </div>
 
         {/* Content placeholder */}
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-[90%] h-[85%] rounded border border-dashed border-gray-300 flex items-center justify-center">
+          <div className="w-[92%] h-[85%] rounded border border-dashed border-gray-300 flex items-center justify-center">
             <span className="text-[8px] text-gray-400 uppercase tracking-wider">
               {exportType === 'calendar' ? 'Calendar Grid' : 'Prayer Times Table'}
             </span>
@@ -154,7 +175,7 @@ function PdfPreview({ lines, exportType }: { lines: PdfLine[]; exportType: Expor
                 wordBreak: 'break-word',
               }}
             >
-              {line.text || ' '}
+              {line.text || ' '}
             </p>
           ))}
           <p style={{ fontSize: 4, color: '#999' }}>
@@ -166,7 +187,6 @@ function PdfPreview({ lines, exportType }: { lines: PdfLine[]; exportType: Expor
   );
 }
 
-// --- Line editor row ---
 function LineEditor({
   line,
   onChange,
@@ -198,7 +218,6 @@ function LineEditor({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {/* Font size */}
         <Select value={String(line.fontSize)} onValueChange={v => update({ fontSize: Number(v) })}>
           <SelectTrigger className="w-[68px] h-7 text-xs bg-background/80 rounded-lg">
             <SelectValue />
@@ -210,7 +229,6 @@ function LineEditor({
           </SelectContent>
         </Select>
 
-        {/* Color */}
         <div className="flex items-center gap-1">
           <input
             type="color"
@@ -235,7 +253,6 @@ function LineEditor({
           </Select>
         </div>
 
-        {/* Bold / Italic toggles */}
         <Button
           variant={line.bold ? 'default' : 'outline'}
           size="icon"
@@ -253,7 +270,6 @@ function LineEditor({
           <Italic className="h-3.5 w-3.5" />
         </Button>
 
-        {/* Position */}
         <Select value={line.position} onValueChange={(v: 'header' | 'footer') => update({ position: v })}>
           <SelectTrigger className="w-[80px] h-7 text-xs bg-background/80 rounded-lg ml-auto">
             <SelectValue />
@@ -276,6 +292,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
   const [dialogOpen, setDialogOpen] = useState(false);
   const [exportType, setExportType] = useState<ExportType>('calendar');
   const [lines, setLines] = useState<PdfLine[]>([]);
+  const [showQuranVerse, setShowQuranVerse] = useState(true);
 
   const monthName = HIJRI_MONTHS[hijriMonth - 1];
 
@@ -288,16 +305,17 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
 
     const defaultTitle = type === 'calendar'
       ? `${monthName} ${hijriYear} AH`
-      : `Prayer Times - ${monthName} ${hijriYear} AH`;
+      : `Prayer Times — ${monthName} ${hijriYear} AH`;
 
     const displayCity = cityLabel || userLocation?.cityName || 'Makkah';
 
     setExportType(type);
     setLines([
-      { id: newId(), text: defaultTitle, fontSize: 20, color: '#1a4737', bold: true, italic: false, position: 'header' },
-      { id: newId(), text: `${displayCity} | ${methodLabel}`, fontSize: 10, color: '#505050', bold: false, italic: false, position: 'header' },
+      { id: newId(), text: defaultTitle, fontSize: 18, color: '#1a4737', bold: true, italic: false, position: 'header' },
+      { id: newId(), text: `${displayCity}  ·  ${methodLabel}`, fontSize: 10, color: '#505050', bold: false, italic: false, position: 'header' },
       { id: newId(), text: '', fontSize: 9, color: '#505050', bold: false, italic: false, position: 'footer' },
     ]);
+    setShowQuranVerse(true);
     setDialogOpen(true);
   };
 
@@ -358,6 +376,40 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
 
   // --- PDF drawing helpers ---
 
+  const drawQuranVerse = async (pdf: jsPDF, pdfWidth: number, startY: number) => {
+    if (!showQuranVerse) return startY;
+
+    let y = startY;
+    y = addArabicText(pdf, QURAN_VERSE_AR, pdfWidth / 2, y, 14, {
+      bold: false, color: '#1a4737', maxWidthMm: pdfWidth - 20,
+    });
+    y += 1;
+
+    pdf.setFont('helvetica', 'italic');
+    pdf.setFontSize(9);
+    pdf.setTextColor(139, 105, 20);
+    pdf.text(QURAN_VERSE_REF, pdfWidth / 2, y, { align: 'center' });
+    y += 3;
+
+    return y;
+  };
+
+  const drawDecorativeLine = (pdf: jsPDF, pdfWidth: number, y: number) => {
+    const margin = 30;
+    const centerX = pdfWidth / 2;
+    const lineLen = pdfWidth - margin * 2;
+
+    pdf.setDrawColor(26, 71, 55);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, y, centerX - 4, y);
+    pdf.line(centerX + 4, y, margin + lineLen, y);
+
+    pdf.setFillColor(26, 71, 55);
+    pdf.circle(centerX, y, 1, 'F');
+
+    return y + 4;
+  };
+
   const drawLines = async (pdf: jsPDF, pdfWidth: number, linesList: PdfLine[], startY: number) => {
     let yPos = startY;
     for (const line of linesList) {
@@ -386,16 +438,23 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
   };
 
   const drawCredits = (pdf: jsPDF, pdfWidth: number, pdfHeight: number) => {
-    let yPos = pdfHeight - 14;
+    const margin = 30;
+    let yPos = pdfHeight - 16;
+
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setLineWidth(0.2);
+    pdf.line(margin, yPos - 2, pdfWidth - margin, yPos - 2);
+
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(7);
-    pdf.setTextColor(100, 100, 100);
+    pdf.setTextColor(120, 120, 120);
     pdf.text('Prayer times data provided by AlAdhan API (aladhan.com)', pdfWidth / 2, yPos, { align: 'center' });
-    yPos += 4;
+    yPos += 3.5;
     pdf.setTextColor(26, 71, 55);
     pdf.textWithLink('syedha.com/prayertimes', pdfWidth / 2 - 12, yPos, { url: 'https://syedha.com/prayertimes' });
-    yPos += 4;
-    pdf.setTextColor(150, 150, 150);
+    yPos += 3.5;
+    pdf.setTextColor(160, 160, 160);
+    pdf.setFontSize(6);
     pdf.text(`Generated on ${new Date().toLocaleDateString()}`, pdfWidth / 2, yPos, { align: 'center' });
   };
 
@@ -415,15 +474,16 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
       const headerLines = lines.filter(l => l.position === 'header');
       const footerLines = lines.filter(l => l.position === 'footer');
 
-      let contentTop = await drawLines(pdf, pdfWidth, headerLines, 16);
+      let contentTop = await drawQuranVerse(pdf, pdfWidth, 14);
+      contentTop = drawDecorativeLine(pdf, pdfWidth, contentTop);
+      contentTop = await drawLines(pdf, pdfWidth, headerLines, contentTop);
 
-      // Gregorian span
       if (days.length > 0) {
         const firstDate = days[0].gregorianDate;
         const lastDate = days[days.length - 1].gregorianDate;
         const firstMonth = GREGORIAN_MONTHS[firstDate.getMonth()];
         const lastMonth = GREGORIAN_MONTHS[lastDate.getMonth()];
-        const span = firstMonth === lastMonth ? `${firstMonth} ${firstDate.getFullYear()}` : `${firstMonth} - ${lastMonth} ${firstDate.getFullYear()}`;
+        const span = firstMonth === lastMonth ? `${firstMonth} ${firstDate.getFullYear()}` : `${firstMonth} – ${lastMonth} ${firstDate.getFullYear()}`;
         pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(9);
         pdf.setTextColor(100, 100, 100);
@@ -431,13 +491,14 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
         contentTop += 6;
       }
 
-      const marginLeft = 15;
+      const gridWidth = pdfWidth - 30;
+      const marginLeft = (pdfWidth - gridWidth) / 2;
       const marginTop = contentTop + 2;
-      const cellWidth = (pdfWidth - 30) / 7;
+      const cellWidth = gridWidth / 7;
       const cellHeight = 18;
 
       pdf.setFillColor(240, 240, 235);
-      pdf.rect(marginLeft, marginTop, pdfWidth - 30, 10, 'F');
+      pdf.rect(marginLeft, marginTop, gridWidth, 10, 'F');
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(10);
       pdf.setTextColor(60, 60, 60);
@@ -510,7 +571,6 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
         }
       }
 
-      // Footer lines
       const footerStartY = pdfHeight - 30 - footerLines.filter(l => l.text).length * 6;
       await drawLines(pdf, pdfWidth, footerLines, footerStartY);
       drawCredits(pdf, pdfWidth, pdfHeight);
@@ -543,23 +603,32 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
       const headerLines = lines.filter(l => l.position === 'header');
       const footerLines = lines.filter(l => l.position === 'footer');
 
-      let contentTop = await drawLines(pdf, pdfWidth, headerLines, 16);
-      contentTop += 4;
+      let contentTop = await drawQuranVerse(pdf, pdfWidth, 14);
+      contentTop = drawDecorativeLine(pdf, pdfWidth, contentTop);
+      contentTop = await drawLines(pdf, pdfWidth, headerLines, contentTop);
+      contentTop += 3;
 
-      const tableMarginLeft = 12;
-      const colWidths = [26, 22, 26, 26, 26, 26, 26, 26];
-      const rowHeight = 7;
+      // Table layout — centered
+      const tableWidth = pdfWidth - 16;
+      const tableLeft = (pdfWidth - tableWidth) / 2;
+      const colWidths = [30, 24, 24, 24, 24, 24, 24, 24];
+      const totalColW = colWidths.reduce((a, b) => a + b, 0);
+      const colScale = tableWidth / totalColW;
+      const scaledCols = colWidths.map(w => w * colScale);
+      const rowHeight = 6.5;
+      const headerRowH = 8;
       const headers = ['Gregorian', 'Hijri', 'Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
+      // Header row
       pdf.setFillColor(26, 71, 55);
-      pdf.rect(tableMarginLeft, contentTop, colWidths.reduce((a, b) => a + b, 0), rowHeight + 1, 'F');
+      pdf.roundedRect(tableLeft, contentTop, tableWidth, headerRowH, 1.5, 1.5, 'F');
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8);
+      pdf.setFontSize(8.5);
       pdf.setTextColor(255, 255, 255);
-      let xPos = tableMarginLeft;
+      let xPos = tableLeft;
       headers.forEach((header, i) => {
-        pdf.text(header, xPos + colWidths[i] / 2, contentTop + 5, { align: 'center' });
-        xPos += colWidths[i];
+        pdf.text(header, xPos + scaledCols[i] / 2, contentTop + 5.5, { align: 'center' });
+        xPos += scaledCols[i];
       });
 
       const prayerTimesData: { date: Date; hijriDay: number; times: any }[] = [];
@@ -572,30 +641,65 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
         }
       }
 
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(9);
+      // Data rows
+      pdf.setFontSize(8);
       prayerTimesData.forEach((dayData, index) => {
-        const y = contentTop + rowHeight + 1 + index * rowHeight;
+        const y = contentTop + headerRowH + index * rowHeight;
         const isFriday = dayData.date.getDay() === 5;
-        if (isFriday) { pdf.setFillColor(252, 248, 230); pdf.rect(tableMarginLeft, y, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F'); }
-        else if (index % 2 === 0) { pdf.setFillColor(245, 245, 245); pdf.rect(tableMarginLeft, y, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F'); }
 
-        pdf.setTextColor(30, 30, 30);
-        let x = tableMarginLeft;
-        pdf.text(`${dayData.date.getDate()} ${GREGORIAN_MONTHS[dayData.date.getMonth()].slice(0, 3)} ${dayData.date.getFullYear()}`, x + colWidths[0] / 2, y + 5, { align: 'center' });
-        x += colWidths[0];
-        pdf.text(`${dayData.hijriDay} ${HIJRI_MONTHS[hijriMonth - 1].slice(0, 3)}`, x + colWidths[1] / 2, y + 5, { align: 'center' });
-        x += colWidths[1];
+        if (isFriday) {
+          pdf.setFillColor(252, 248, 230);
+          pdf.rect(tableLeft, y, tableWidth, rowHeight, 'F');
+        } else if (index % 2 === 0) {
+          pdf.setFillColor(248, 248, 248);
+          pdf.rect(tableLeft, y, tableWidth, rowHeight, 'F');
+        }
 
+        // Subtle row border
+        pdf.setDrawColor(230, 230, 230);
+        pdf.setLineWidth(0.1);
+        pdf.line(tableLeft, y + rowHeight, tableLeft + tableWidth, y + rowHeight);
+
+        let x = tableLeft;
+
+        // Gregorian date
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(40, 40, 40);
+        const gregStr = `${dayData.date.getDate()} ${GREGORIAN_MONTHS[dayData.date.getMonth()].slice(0, 3)} ${dayData.date.getFullYear()}`;
+        pdf.text(gregStr, x + scaledCols[0] / 2, y + 4.5, { align: 'center' });
+        x += scaledCols[0];
+
+        // Hijri
+        pdf.setTextColor(26, 71, 55);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`${dayData.hijriDay}`, x + scaledCols[1] / 2 - 4, y + 4.5, { align: 'center' });
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(80, 80, 80);
+        pdf.setFontSize(7);
+        pdf.text(HIJRI_MONTHS[hijriMonth - 1].slice(0, 3), x + scaledCols[1] / 2 + 5, y + 4.5, { align: 'center' });
+        pdf.setFontSize(8);
+        x += scaledCols[1];
+
+        // Prayer times
         if (dayData.times) {
           const keys = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'] as const;
           keys.forEach((k, ki) => {
-            pdf.text(to12Hour(dayData.times[k]), x + colWidths[ki + 2] / 2, y + 5, { align: 'center' });
-            x += colWidths[ki + 2];
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(30, 30, 30);
+            if (isFriday) pdf.setTextColor(26, 71, 55);
+            pdf.text(to12Hour(dayData.times[k]), x + scaledCols[ki + 2] / 2, y + 4.5, { align: 'center' });
+            x += scaledCols[ki + 2];
           });
         }
       });
 
+      // Bottom border of table
+      const tableBottom = contentTop + headerRowH + prayerTimesData.length * rowHeight;
+      pdf.setDrawColor(26, 71, 55);
+      pdf.setLineWidth(0.3);
+      pdf.line(tableLeft, tableBottom, tableLeft + tableWidth, tableBottom);
+
+      // Footer lines
       const footerStartY = pdfHeight - 26 - footerLines.filter(l => l.text).length * 5;
       await drawLines(pdf, pdfWidth, footerLines, footerStartY);
       drawCredits(pdf, pdfWidth, pdfHeight);
@@ -639,11 +743,30 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
               <Type className="h-5 w-5" />
               Customize {exportType === 'calendar' ? 'Calendar' : 'Prayer Times'} PDF
             </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Add custom header and footer text, adjust styling, and preview before exporting.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-6 pt-2">
             {/* Left: Line editors */}
             <div className="space-y-4">
+              {/* Quran verse toggle */}
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                <Checkbox
+                  id="quran-verse"
+                  checked={showQuranVerse}
+                  onCheckedChange={(checked) => setShowQuranVerse(checked === true)}
+                  className="border-primary data-[state=checked]:bg-primary"
+                />
+                <label htmlFor="quran-verse" className="flex-1 cursor-pointer">
+                  <span className="text-sm font-semibold text-foreground block">Include Qur'an 4:103</span>
+                  <span className="text-xs text-muted-foreground" dir="rtl" style={{ fontFamily: "'Amiri', serif" }}>
+                    {QURAN_VERSE_AR}
+                  </span>
+                </label>
+              </div>
+
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold text-foreground">Lines</Label>
                 <div className="flex gap-1.5">
@@ -680,7 +803,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
             {/* Right: Preview */}
             <div className="space-y-2">
               <Label className="text-sm font-semibold text-foreground">Preview</Label>
-              <PdfPreview lines={lines} exportType={exportType} />
+              <PdfPreview lines={lines} exportType={exportType} showVerse={showQuranVerse} />
             </div>
           </div>
         </DialogContent>
