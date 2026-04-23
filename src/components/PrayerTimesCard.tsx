@@ -188,13 +188,6 @@ export function PrayerTimesCard({ selectedDate, onPreferencesChange }: PrayerTim
   useEffect(() => {
     if (!prayerTimes || !location) return;
 
-    // Calculate current time in the location's timezone
-    const now = new Date();
-    const utcHours = now.getUTCHours();
-    const utcMinutes = now.getUTCMinutes();
-    const tz = location.timezone ?? getTimezoneFromLongitude(location.longitude);
-    const localMinutes = (utcHours * 60 + utcMinutes + tz * 60 + 1440) % 1440;
-
     const timeToMinutes = (time: string) => {
       const [h, m] = time.split(':').map(Number);
       return h * 60 + m;
@@ -209,19 +202,46 @@ export function PrayerTimesCard({ selectedDate, onPreferencesChange }: PrayerTim
       { name: 'isha', minutes: timeToMinutes(prayerTimes.isha) },
     ];
 
-    let current = 'isha';
-    for (let i = times.length - 1; i >= 0; i--) {
-      if (localMinutes >= times[i].minutes) {
-        current = times[i].name;
-        break;
-      }
-    }
-    if (localMinutes < times[0].minutes) {
-      current = 'isha';
-    }
+    const updateCurrent = () => {
+      let localMinutes: number;
 
-    setCurrentPrayer(current);
-  }, [prayerTimes, location]);
+      // Use IANA timezone from API if available for accurate local time
+      if (currentHijriDate?.timezone) {
+        try {
+          const localeTime = new Date().toLocaleString('en-US', { timeZone: currentHijriDate.timezone, hour12: false });
+          const parts = localeTime.split(/[, ]+/);
+          const timePart = parts[parts.length - 1];
+          const [h, m] = timePart.split(':').map(Number);
+          localMinutes = h * 60 + m;
+        } catch {
+          const now = new Date();
+          const tz = location.timezone ?? getTimezoneFromLongitude(location.longitude);
+          localMinutes = (now.getUTCHours() * 60 + now.getUTCMinutes() + tz * 60 + 1440) % 1440;
+        }
+      } else {
+        const now = new Date();
+        const tz = location.timezone ?? getTimezoneFromLongitude(location.longitude);
+        localMinutes = (now.getUTCHours() * 60 + now.getUTCMinutes() + tz * 60 + 1440) % 1440;
+      }
+
+      let current = 'isha';
+      for (let i = times.length - 1; i >= 0; i--) {
+        if (localMinutes >= times[i].minutes) {
+          current = times[i].name;
+          break;
+        }
+      }
+      if (localMinutes < times[0].minutes) {
+        current = 'isha';
+      }
+
+      setCurrentPrayer(current);
+    };
+
+    updateCurrent();
+    const interval = setInterval(updateCurrent, 60_000);
+    return () => clearInterval(interval);
+  }, [prayerTimes, location, currentHijriDate]);
 
   const handleCityChange = (city: string) => {
     setSelectedCity(city);
