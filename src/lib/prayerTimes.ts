@@ -43,6 +43,7 @@ export interface PrayerMethodConfig {
   fajrAngle: number;
   ishaAngle?: number;
   ishaMinutes?: number;
+  maghribAngle?: number;
   maghribMinutes?: number;
   asrFactor?: number;
   region?: string;
@@ -51,32 +52,32 @@ export interface PrayerMethodConfig {
 export const PRAYER_METHODS: Record<PrayerMethod, PrayerMethodConfig> = {
 
   // Shia Methods
-  'jafari': { 
-    name: 'Jafari (Ithna Ashari)', 
-    fajrAngle: 16, 
+  'jafari': {
+    name: 'Jafari (Ithna Ashari)',
+    fajrAngle: 16,
     ishaAngle: 14,
-    maghribMinutes: 4,
+    maghribAngle: 4,
     region: 'Shia'
   },
-  'jafari-karachi': { 
-    name: 'Jafari (Karachi)', 
-    fajrAngle: 18, 
+  'jafari-karachi': {
+    name: 'Jafari (Karachi)',
+    fajrAngle: 18,
     ishaAngle: 18,
-    maghribMinutes: 4,
+    maghribAngle: 4,
     region: 'Shia - Pakistan'
   },
-  'leva-qom': { 
-    name: 'Leva Research Institute (Qom)', 
-    fajrAngle: 16, 
+  'leva-qom': {
+    name: 'Leva Research Institute (Qom)',
+    fajrAngle: 16,
     ishaAngle: 14,
-    maghribMinutes: 4,
+    maghribAngle: 4,
     region: 'Shia - Iran'
   },
-  'tehran': { 
-    name: 'Institute of Geophysics (Tehran)', 
-    fajrAngle: 17.7, 
+  'tehran': {
+    name: 'Institute of Geophysics (Tehran)',
+    fajrAngle: 17.7,
     ishaAngle: 14,
-    maghribMinutes: 4,
+    maghribAngle: 4.5,
     region: 'Iran'
   },
   
@@ -269,9 +270,15 @@ export function calculatePrayerTimes(
   const haAsrDeg = hourAngleForAltitude(asrAltitudeDeg, latitude, declinationRad);
   const asr = solarNoon + (haAsrDeg * 4) / 60;
 
-  // Maghrib
-  const maghribMinutes = config.maghribMinutes ?? 0;
-  const maghrib = sunset + maghribMinutes / 60;
+  // Maghrib: angle-based for Shia methods, sunset-offset for others
+  let maghrib: number;
+  if (config.maghribAngle) {
+    const haMaghribDeg = hourAngleForAltitude(-config.maghribAngle, latitude, declinationRad);
+    maghrib = solarNoon + (haMaghribDeg * 4) / 60;
+  } else {
+    const maghribMinutes = config.maghribMinutes ?? 0;
+    maghrib = sunset + maghribMinutes / 60;
+  }
 
   // Isha
   let isha: number;

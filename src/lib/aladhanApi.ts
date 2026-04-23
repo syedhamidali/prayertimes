@@ -86,8 +86,14 @@ export async function fetchPrayerTimesFromAladhan(opts: {
   const url = new URL(`https://api.aladhan.com/v1/timings/${formatDateForAladhan(date)}`);
   url.searchParams.set("latitude", String(location.latitude));
   url.searchParams.set("longitude", String(location.longitude));
-  url.searchParams.set("method", String(methodId));
   url.searchParams.set("school", String(school));
+
+  if (method === "jafari-karachi") {
+    url.searchParams.set("method", "99");
+    url.searchParams.set("methodSettings", "18,4,18");
+  } else {
+    url.searchParams.set("method", String(methodId));
+  }
 
   const res = await fetch(url.toString());
   if (!res.ok) {

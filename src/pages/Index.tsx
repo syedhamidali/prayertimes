@@ -10,6 +10,14 @@ import { getTimezoneFromLongitude } from '@/lib/prayerTimes';
 import type { AladhanHijriDate } from '@/lib/aladhanApi';
 import { Moon, Star, MapPin } from 'lucide-react';
 
+function parseUtcOffset(offset: string): number {
+  const sign = offset[0] === '-' ? -1 : 1;
+  const abs = offset.replace(/^[+-]/, '');
+  const hours = parseInt(abs.slice(0, 2), 10) || 0;
+  const minutes = parseInt(abs.slice(2, 4), 10) || 0;
+  return sign * (hours + minutes / 60);
+}
+
 interface LocationInfo {
   city?: string;
   country?: string;
@@ -74,7 +82,7 @@ const Index = () => {
           try {
             const response = await fetch('https://ipapi.co/json/');
             const data = await response.json();
-            const tz = data.utc_offset ? parseFloat(data.utc_offset) / 100 : 
+            const tz = data.utc_offset ? parseUtcOffset(data.utc_offset) : 
                        (typeof data.longitude === 'number' ? getTimezoneFromLongitude(data.longitude) : undefined);
             if (tz !== undefined) setTimezoneOffset(tz);
             
@@ -102,7 +110,7 @@ const Index = () => {
       fetch('https://ipapi.co/json/')
         .then(res => res.json())
         .then(data => {
-          const tz = data.utc_offset ? parseFloat(data.utc_offset) / 100 : 
+          const tz = data.utc_offset ? parseUtcOffset(data.utc_offset) : 
                      (typeof data.longitude === 'number' ? getTimezoneFromLongitude(data.longitude) : undefined);
           if (tz !== undefined) setTimezoneOffset(tz);
           
