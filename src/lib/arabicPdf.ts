@@ -11,8 +11,9 @@ let browserFontsLoaded = false;
 async function loadBrowserFonts(): Promise<void> {
   if (browserFontsLoaded) return;
 
-  const regular = new FontFace('Amiri', 'url(/fonts/Amiri-Regular.ttf)');
-  const bold = new FontFace('Amiri', 'url(/fonts/Amiri-Bold.ttf)', { weight: 'bold' });
+  const base = import.meta.env.BASE_URL ?? '/';
+  const regular = new FontFace('Amiri', `url(${base}fonts/Amiri-Regular.ttf)`);
+  const bold = new FontFace('Amiri', `url(${base}fonts/Amiri-Bold.ttf)`, { weight: 'bold' });
 
   const [r, b] = await Promise.all([regular.load(), bold.load()]);
   document.fonts.add(r);
