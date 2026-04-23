@@ -116,6 +116,40 @@ export async function fetchPrayerTimesFromAladhan(opts: {
   };
 }
 
+export interface HijriCalendarDay {
+  hijriDay: number;
+  gregorianDate: Date;
+  isToday: boolean;
+}
+
+export async function fetchHijriMonthCalendar(hijriMonth: number, hijriYear: number): Promise<HijriCalendarDay[]> {
+  const res = await fetch(`https://api.aladhan.com/v1/hToGCalendar/${hijriMonth}/${hijriYear}`);
+  if (!res.ok) throw new Error(`AlAdhan calendar request failed: ${res.status}`);
+
+  const json = await res.json();
+  const data = json?.data;
+  if (!Array.isArray(data)) throw new Error('AlAdhan calendar response missing data');
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return data.map((entry: any) => {
+    const g = entry.gregorian;
+    const gregDate = new Date(
+      parseInt(g.year, 10),
+      parseInt(g.month.number, 10) - 1,
+      parseInt(g.day, 10),
+    );
+    gregDate.setHours(0, 0, 0, 0);
+
+    return {
+      hijriDay: parseInt(entry.hijri.day, 10),
+      gregorianDate: gregDate,
+      isToday: gregDate.getTime() === today.getTime(),
+    };
+  });
+}
+
 // Fetch current Hijri date from Al-Adhan API for a specific location
 export async function fetchCurrentHijriDate(location: Location): Promise<AladhanHijriDate> {
   const today = new Date();

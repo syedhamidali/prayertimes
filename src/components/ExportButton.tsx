@@ -21,7 +21,7 @@ import { Download, Loader2, Calendar, Clock, Plus, Trash2, Bold, Italic, Type } 
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import { HIJRI_MONTHS, HIJRI_MONTHS_ARABIC, CalculationMethod, CALCULATION_METHODS, getMonthDays, WEEKDAYS, GREGORIAN_MONTHS } from '@/lib/hijriUtils';
-import { fetchPrayerTimesFromAladhan, AladhanHijriDate } from '@/lib/aladhanApi';
+import { fetchPrayerTimesFromAladhan, fetchHijriMonthCalendar, AladhanHijriDate, HijriCalendarDay } from '@/lib/aladhanApi';
 import { PRAYER_METHODS, type PrayerMethod } from '@/lib/prayerTimes';
 import { getEventsForDay } from '@/lib/islamicEvents';
 import { initArabicSupport, addArabicText, containsArabic } from '@/lib/arabicPdf';
@@ -362,21 +362,17 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
     }
   };
 
-  const getAdjustedDays = (days: ReturnType<typeof getMonthDays>) => {
-    if (!apiHijriDate?.gregorian) return days;
-    if (apiHijriDate.year !== hijriYear || apiHijriDate.month !== hijriMonth) return days;
-    const target = days.find((d) => d.hijriDay === apiHijriDate.day);
-    if (!target) return days;
-    const apiG = new Date(apiHijriDate.gregorian.year, apiHijriDate.gregorian.month - 1, apiHijriDate.gregorian.day);
-    apiG.setHours(0, 0, 0, 0);
-    const computedG = new Date(target.gregorianDate);
-    computedG.setHours(0, 0, 0, 0);
-    const deltaMs = apiG.getTime() - computedG.getTime();
-    return days.map((d) => {
-      const g = new Date(d.gregorianDate.getTime() + deltaMs);
-      g.setHours(0, 0, 0, 0);
-      return { ...d, gregorianDate: g, isToday: g.getTime() === apiG.getTime() };
-    });
+  const getAuthorativeDays = async (): Promise<HijriCalendarDay[]> => {
+    try {
+      return await fetchHijriMonthCalendar(hijriMonth, hijriYear);
+    } catch {
+      const localDays = getMonthDays(hijriYear, hijriMonth, method);
+      return localDays.map(d => ({
+        hijriDay: d.hijriDay,
+        gregorianDate: d.gregorianDate,
+        isToday: d.isToday,
+      }));
+    }
   };
 
   // --- PDF drawing helpers ---
@@ -470,8 +466,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
     toast.loading('Generating Calendar PDF...', { id: 'export-calendar' });
 
     try {
-      const rawDays = getMonthDays(hijriYear, hijriMonth, method);
-      const days = getAdjustedDays(rawDays);
+      const days = await getAuthorativeDays();
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
       await initArabicSupport();
 
@@ -597,8 +592,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
     toast.loading('Generating Prayer Times PDF...', { id: 'export-prayer' });
 
     try {
-      const rawDays = getMonthDays(hijriYear, hijriMonth, method);
-      const days = getAdjustedDays(rawDays);
+      const days = await getAuthorativeDays();
       const prayerMethodToUse = prayerMethod ?? (method as any);
       const { latitude, longitude } = await getLocationInfo(userLocation);
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
