@@ -8,7 +8,9 @@ import { getCurrentHijriDate, CalculationMethod, formatHijriDate, hijriToGregori
 import type { Location as PrayerLocation, PrayerMethod } from '@/lib/prayerTimes';
 import { getTimezoneFromLongitude } from '@/lib/prayerTimes';
 import type { AladhanHijriDate } from '@/lib/aladhanApi';
-import { Moon, Star, MapPin } from 'lucide-react';
+import { Moon, Star, MapPin, Minus, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 function parseUtcOffset(offset: string): number {
   const sign = offset[0] === '-' ? -1 : 1;
@@ -33,6 +35,7 @@ const Index = () => {
   const [location, setLocation] = useState<LocationInfo>({ loading: true });
   const [timezoneOffset, setTimezoneOffset] = useState<number | undefined>(undefined);
   const [apiHijriDate, setApiHijriDate] = useState<AladhanHijriDate | undefined>(undefined);
+  const [dateAdjustment, setDateAdjustment] = useState(0);
   const [exportPrefs, setExportPrefs] = useState<{
     location: PrayerLocation;
     cityLabel: string;
@@ -197,9 +200,18 @@ const Index = () => {
   };
 
   // Use API date for header display, fall back to calculated date
-  const currentHijri = apiHijriDate 
+  const currentHijri = apiHijriDate
     ? { year: apiHijriDate.year, month: apiHijriDate.month, day: apiHijriDate.day }
     : getCurrentHijriDate(method, timezoneOffset);
+
+  // Apply date adjustment to the Gregorian date passed to CalendarGrid
+  const adjustedGregorianDate = useMemo(() => {
+    if (!apiHijriDate?.gregorian) return undefined;
+    if (dateAdjustment === 0) return apiHijriDate.gregorian;
+    const d = new Date(apiHijriDate.gregorian.year, apiHijriDate.gregorian.month - 1, apiHijriDate.gregorian.day);
+    d.setDate(d.getDate() + dateAdjustment);
+    return { day: d.getDate(), month: d.getMonth() + 1, year: d.getFullYear() };
+  }, [apiHijriDate, dateAdjustment]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/20">
@@ -254,12 +266,39 @@ const Index = () => {
         {/* Controls */}
         <div className="bg-card/80 backdrop-blur-md rounded-3xl shadow-card border border-border/50 p-5 sm:p-7 mb-6 animate-slide-up">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
-            <YearSelector
-              year={hijriYear}
-              month={hijriMonth}
-              onYearChange={setHijriYear}
-              onMonthChange={setHijriMonth}
-            />
+            <div className="flex flex-wrap items-center gap-4">
+              <YearSelector
+                year={hijriYear}
+                month={hijriMonth}
+                onYearChange={setHijriYear}
+                onMonthChange={setHijriMonth}
+              />
+              <div className="flex items-center gap-2 bg-secondary/50 rounded-xl px-3 py-2 border border-border/30">
+                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">Date Adj.</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setDateAdjustment(prev => prev - 1)}
+                  className="h-7 w-7 rounded-lg"
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <span className={cn(
+                  "w-8 text-center text-sm font-mono font-semibold",
+                  dateAdjustment === 0 ? "text-muted-foreground" : dateAdjustment > 0 ? "text-primary" : "text-destructive"
+                )}>
+                  {dateAdjustment > 0 ? `+${dateAdjustment}` : dateAdjustment}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setDateAdjustment(prev => prev + 1)}
+                  className="h-7 w-7 rounded-lg"
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
             <ExportButton
               hijriYear={hijriYear}
               hijriMonth={hijriMonth}
@@ -272,6 +311,7 @@ const Index = () => {
                 cityName: exportPrefs.cityLabel,
               }}
               apiHijriDate={apiHijriDate}
+              dateAdjustment={dateAdjustment}
             />
           </div>
         </div>
@@ -296,7 +336,7 @@ const Index = () => {
                 currentHijriDay={apiHijriDate?.day}
                 currentHijriMonth={apiHijriDate?.month}
                 currentHijriYear={apiHijriDate?.year}
-                currentGregorianDate={apiHijriDate?.gregorian}
+                currentGregorianDate={adjustedGregorianDate}
               />
             </div>
           </div>

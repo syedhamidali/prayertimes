@@ -35,6 +35,7 @@ interface ExportButtonProps {
   prayerMethod?: PrayerMethod;
   cityLabel?: string;
   apiHijriDate?: AladhanHijriDate;
+  dateAdjustment?: number;
 }
 
 interface PdfLine {
@@ -287,7 +288,7 @@ function LineEditor({
 }
 
 
-export function ExportButton({ hijriYear, hijriMonth, method, userLocation, prayerMethod, cityLabel, apiHijriDate }: ExportButtonProps) {
+export function ExportButton({ hijriYear, hijriMonth, method, userLocation, prayerMethod, cityLabel, apiHijriDate, dateAdjustment: initialAdjustment }: ExportButtonProps) {
   const [isExportingCalendar, setIsExportingCalendar] = useState(false);
   const [isExportingPrayer, setIsExportingPrayer] = useState(false);
 
@@ -322,7 +323,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
     ]);
     setShowQuranVerse(true);
     setShowDefaultFooter(true);
-    setDateAdjustment(0);
+    setDateAdjustment(initialAdjustment ?? 0);
     setDialogOpen(true);
   };
 
