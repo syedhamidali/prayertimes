@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { getMonthDays, WEEKDAYS, CalculationMethod, GREGORIAN_MONTHS } from '@/lib/hijriUtils';
+import { getEventsForDay, IslamicEvent } from '@/lib/islamicEvents';
 import { cn } from '@/lib/utils';
 
 interface CalendarGridProps {
@@ -91,6 +92,8 @@ export function CalendarGrid({
     return `${firstMonth} ${firstYear} - ${lastMonth} ${lastYear}`;
   }, [adjustedDays]);
 
+  const [selectedEvent, setSelectedEvent] = useState<{ day: number; events: IslamicEvent[] } | null>(null);
+
   // Create empty cells for alignment
   const emptyCells = Array(firstDayOfWeek).fill(null);
 
@@ -136,28 +139,41 @@ export function CalendarGrid({
           {/* Actual days */}
           {adjustedDays.map((day, index) => {
             const isFriday = day.gregorianDate.getDay() === 5;
-            // Use API-based today check if available, otherwise fall back to calculated
             const isToday = isTodayFromApi(day.hijriDay) || (currentHijriDay === undefined && day.isToday);
-            
+            const events = getEventsForDay(hijriMonth, day.hijriDay);
+            const hasEvent = events.length > 0;
+            const eventType = hasEvent ? events[0].type : null;
+
             return (
               <div
                 key={index}
                 className={cn(
-                  "aspect-square p-1.5 sm:p-2.5 rounded-2xl transition-all duration-300 flex flex-col items-center justify-center gap-0.5 group cursor-default",
+                  "relative aspect-square p-1.5 sm:p-2.5 rounded-2xl transition-all duration-300 flex flex-col items-center justify-center gap-0.5 group",
+                  hasEvent ? "cursor-pointer" : "cursor-default",
                   isToday
                     ? "bg-gradient-to-br from-primary via-primary to-emerald-dark text-primary-foreground shadow-lg shadow-primary/30 scale-105"
                     : isFriday
                     ? "bg-gradient-to-br from-gold/15 to-gold/5 hover:from-gold/25 hover:to-gold/10"
                     : "hover:bg-secondary/80"
                 )}
+                onClick={() => hasEvent && setSelectedEvent({ day: day.hijriDay, events })}
               >
+                {hasEvent && (
+                  <span className={cn(
+                    "absolute top-1 right-1 w-2 h-2 rounded-full",
+                    isToday ? "bg-gold" :
+                    eventType === 'wiladat' ? "bg-emerald-500" :
+                    eventType === 'victory' ? "bg-amber-400" :
+                    "bg-red-500"
+                  )} />
+                )}
                 <span
                   className={cn(
                     "text-lg sm:text-2xl font-bold font-display transition-transform duration-300 group-hover:scale-110",
-                    isToday 
-                      ? "text-primary-foreground" 
-                      : isFriday 
-                      ? "text-primary" 
+                    isToday
+                      ? "text-primary-foreground"
+                      : isFriday
+                      ? "text-primary"
                       : "text-foreground"
                   )}
                 >
@@ -176,15 +192,53 @@ export function CalendarGrid({
           })}
         </div>
 
+        {/* Event detail popup */}
+        {selectedEvent && (
+          <div className="mt-4 p-4 bg-secondary/60 backdrop-blur-sm rounded-2xl border border-border/50 animate-fade-in">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-bold text-foreground">Day {selectedEvent.day}</span>
+              <button
+                onClick={() => setSelectedEvent(null)}
+                className="text-muted-foreground hover:text-foreground text-lg leading-none px-1"
+              >
+                &times;
+              </button>
+            </div>
+            {selectedEvent.events.map((event, i) => (
+              <div key={i} className="flex items-start gap-2 py-1.5">
+                <span className={cn(
+                  "mt-1.5 w-2 h-2 rounded-full shrink-0",
+                  event.type === 'wiladat' ? "bg-emerald-500" :
+                  event.type === 'victory' ? "bg-amber-400" :
+                  "bg-red-500"
+                )} />
+                <span className="text-sm text-foreground">{event.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Legend */}
-        <div className="mt-6 pt-4 border-t border-border/30 flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2.5">
+        <div className="mt-6 pt-4 border-t border-border/30 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-primary to-emerald-dark shadow-sm" />
             <span className="font-medium">Today</span>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-gold/30 to-gold/10" />
-            <span className="font-medium">Friday (Jumu'ah)</span>
+            <span className="font-medium">Jumu'ah</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+            <span className="font-medium">Mourning</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+            <span className="font-medium">Wiladat</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+            <span className="font-medium">Event</span>
           </div>
         </div>
       </div>
