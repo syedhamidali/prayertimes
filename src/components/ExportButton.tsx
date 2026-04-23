@@ -105,7 +105,7 @@ async function getLocationInfo(providedLocation?: { latitude: number; longitude:
 
 type ExportType = 'calendar' | 'prayer';
 
-function PdfPreview({ lines, exportType, showVerse }: { lines: PdfLine[]; exportType: ExportType; showVerse: boolean }) {
+function PdfPreview({ lines, exportType, showVerse, showFooter }: { lines: PdfLine[]; exportType: ExportType; showVerse: boolean; showFooter: boolean }) {
   const headerLines = lines.filter(l => l.position === 'header');
   const footerLines = lines.filter(l => l.position === 'footer');
 
@@ -178,9 +178,11 @@ function PdfPreview({ lines, exportType, showVerse }: { lines: PdfLine[]; export
               {line.text || ' '}
             </p>
           ))}
-          <p style={{ fontSize: 4, color: '#999' }}>
-            Prayer times data provided by AlAdhan API &middot; syedha.com/prayertimes
-          </p>
+          {showFooter && (
+            <p style={{ fontSize: 4, color: '#999' }}>
+              Prayer times data provided by AlAdhan API &middot; syedha.com/prayertimes
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -293,6 +295,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
   const [exportType, setExportType] = useState<ExportType>('calendar');
   const [lines, setLines] = useState<PdfLine[]>([]);
   const [showQuranVerse, setShowQuranVerse] = useState(true);
+  const [showDefaultFooter, setShowDefaultFooter] = useState(true);
 
   const monthName = HIJRI_MONTHS[hijriMonth - 1];
 
@@ -316,6 +319,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
       { id: newId(), text: '', fontSize: 9, color: '#505050', bold: false, italic: false, position: 'footer' },
     ]);
     setShowQuranVerse(true);
+    setShowDefaultFooter(true);
     setDialogOpen(true);
   };
 
@@ -438,6 +442,8 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
   };
 
   const drawCredits = (pdf: jsPDF, pdfWidth: number, pdfHeight: number) => {
+    if (!showDefaultFooter) return;
+
     const margin = 30;
     let yPos = pdfHeight - 16;
 
@@ -767,6 +773,22 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
                 </label>
               </div>
 
+              {/* Default footer toggle */}
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40 border border-border/30">
+                <Checkbox
+                  id="default-footer"
+                  checked={showDefaultFooter}
+                  onCheckedChange={(checked) => setShowDefaultFooter(checked === true)}
+                  className="border-muted-foreground data-[state=checked]:bg-primary"
+                />
+                <label htmlFor="default-footer" className="flex-1 cursor-pointer">
+                  <span className="text-sm font-semibold text-foreground block">Include default footer</span>
+                  <span className="text-xs text-muted-foreground">
+                    AlAdhan credit, syedha.com link, generation date
+                  </span>
+                </label>
+              </div>
+
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold text-foreground">Lines</Label>
                 <div className="flex gap-1.5">
@@ -803,7 +825,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
             {/* Right: Preview */}
             <div className="space-y-2">
               <Label className="text-sm font-semibold text-foreground">Preview</Label>
-              <PdfPreview lines={lines} exportType={exportType} showVerse={showQuranVerse} />
+              <PdfPreview lines={lines} exportType={exportType} showVerse={showQuranVerse} showFooter={showDefaultFooter} />
             </div>
           </div>
         </DialogContent>
