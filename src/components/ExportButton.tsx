@@ -20,7 +20,7 @@ import {
 import { Download, Loader2, Calendar, Clock, Plus, Trash2, Bold, Italic, Type } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
-import { HIJRI_MONTHS, CalculationMethod, CALCULATION_METHODS, getMonthDays, WEEKDAYS, GREGORIAN_MONTHS } from '@/lib/hijriUtils';
+import { HIJRI_MONTHS, HIJRI_MONTHS_ARABIC, CalculationMethod, CALCULATION_METHODS, getMonthDays, WEEKDAYS, GREGORIAN_MONTHS } from '@/lib/hijriUtils';
 import { fetchPrayerTimesFromAladhan, AladhanHijriDate } from '@/lib/aladhanApi';
 import { PRAYER_METHODS, type PrayerMethod } from '@/lib/prayerTimes';
 import { getEventsForDay } from '@/lib/islamicEvents';
@@ -306,15 +306,16 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
          CALCULATION_METHODS.find(m => m.value === method)?.label ?? String(prayerMethodToUse))
       : (CALCULATION_METHODS.find(m => m.value === method)?.label || method);
 
+    const arabicMonth = HIJRI_MONTHS_ARABIC[hijriMonth - 1];
     const defaultTitle = type === 'calendar'
-      ? `${monthName} ${hijriYear} AH`
-      : `Prayer Times — ${monthName} ${hijriYear} AH`;
+      ? `${monthName} / ${arabicMonth} ${hijriYear} AH`
+      : `Prayer Times — ${monthName} / ${arabicMonth} ${hijriYear} AH`;
 
     const displayCity = cityLabel || userLocation?.cityName || 'Makkah';
 
     setExportType(type);
     setLines([
-      { id: newId(), text: defaultTitle, fontSize: 18, color: '#1a4737', bold: true, italic: false, position: 'header' },
+      { id: newId(), text: defaultTitle, fontSize: 14, color: '#1a4737', bold: true, italic: false, position: 'header' },
       { id: newId(), text: `${displayCity}  ·  ${methodLabel}`, fontSize: 10, color: '#505050', bold: false, italic: false, position: 'header' },
       { id: newId(), text: '', fontSize: 9, color: '#505050', bold: false, italic: false, position: 'footer' },
     ]);
@@ -384,7 +385,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
     if (!showQuranVerse) return startY;
 
     let y = startY;
-    y = addArabicText(pdf, QURAN_VERSE_AR, pdfWidth / 2, y, 20, {
+    y = addArabicText(pdf, QURAN_VERSE_AR, pdfWidth / 2, y, 26, {
       bold: false, color: '#1a4737', maxWidthMm: pdfWidth - 20,
     });
     y += 2;
