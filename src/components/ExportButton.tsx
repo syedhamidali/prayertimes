@@ -1,5 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Download, Loader2, Calendar, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
@@ -14,10 +23,9 @@ interface ExportButtonProps {
   userLocation?: { latitude: number; longitude: number; cityName: string };
   prayerMethod?: PrayerMethod;
   cityLabel?: string;
-  apiHijriDate?: AladhanHijriDate; // For Hijri↔Gregorian alignment from Al-Adhan API
+  apiHijriDate?: AladhanHijriDate;
 }
 
-// Convert 24h time to 12h format with AM/PM
 function to12Hour(time24: string): string {
   const [hours, minutes] = time24.split(':').map(Number);
   const period = hours >= 12 ? 'PM' : 'AM';
@@ -25,14 +33,11 @@ function to12Hour(time24: string): string {
   return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
-// Helper to get location and city name (fallback if not provided)
 async function getLocationInfo(providedLocation?: { latitude: number; longitude: number; cityName: string }): Promise<{ latitude: number; longitude: number; cityName: string }> {
-  // If location is provided from parent, use it
   if (providedLocation && providedLocation.latitude && providedLocation.longitude) {
     return providedLocation;
   }
-  
-  // Fallback to Makkah
+
   let latitude = 21.4225;
   let longitude = 39.8262;
   let cityName = 'Makkah';
@@ -58,18 +63,55 @@ async function getLocationInfo(providedLocation?: { latitude: number; longitude:
   return { latitude, longitude, cityName };
 }
 
+type ExportType = 'calendar' | 'prayer';
+
 export function ExportButton({ hijriYear, hijriMonth, method, userLocation, prayerMethod, cityLabel, apiHijriDate }: ExportButtonProps) {
   const [isExportingCalendar, setIsExportingCalendar] = useState(false);
   const [isExportingPrayer, setIsExportingPrayer] = useState(false);
 
-  // Helper to adjust days based on API's Hijri↔Gregorian alignment
-  // and also ensure the "today" highlight matches the API (not the viewer's device timezone).
-  // IMPORTANT: only apply this shift when exporting the same Hijri month/year as the API "today".
+  // Customization dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [exportType, setExportType] = useState<ExportType>('calendar');
+  const [customTitle, setCustomTitle] = useState('');
+  const [customSubtitle, setCustomSubtitle] = useState('');
+  const [customFooter, setCustomFooter] = useState('');
+
+  const monthName = HIJRI_MONTHS[hijriMonth - 1];
+
+  const openDialog = (type: ExportType) => {
+    const prayerMethodToUse = prayerMethod ?? (method as any);
+    const methodLabel = type === 'prayer'
+      ? (PRAYER_METHODS[prayerMethodToUse as PrayerMethod]?.name ??
+         CALCULATION_METHODS.find(m => m.value === method)?.label ?? String(prayerMethodToUse))
+      : (CALCULATION_METHODS.find(m => m.value === method)?.label || method);
+
+    const defaultTitle = type === 'calendar'
+      ? `${monthName} ${hijriYear} AH`
+      : `Prayer Times - ${monthName} ${hijriYear} AH`;
+
+    const displayCity = cityLabel || userLocation?.cityName || 'Makkah';
+    const defaultSubtitle = `Location: ${displayCity} | Method: ${methodLabel}`;
+
+    setExportType(type);
+    setCustomTitle(defaultTitle);
+    setCustomSubtitle(defaultSubtitle);
+    setCustomFooter('');
+    setDialogOpen(true);
+  };
+
+  const handleExport = () => {
+    setDialogOpen(false);
+    if (exportType === 'calendar') {
+      doExportCalendar();
+    } else {
+      doExportPrayerTimes();
+    }
+  };
+
   const getAdjustedDays = (days: ReturnType<typeof getMonthDays>) => {
     if (!apiHijriDate?.gregorian) return days;
     if (apiHijriDate.year !== hijriYear || apiHijriDate.month !== hijriMonth) return days;
 
-    // Find the day matching the API's current Hijri day (within this month)
     const target = days.find((d) => d.hijriDay === apiHijriDate.day);
     if (!target) return days;
 
@@ -96,16 +138,63 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
     });
   };
 
-  const handleExportCalendar = async () => {
+  const drawCustomHeader = (pdf: jsPDF, pdfWidth: number) => {
+    let yPos = 18;
+
+    // Title
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(20);
+    pdf.setTextColor(26, 71, 55);
+    pdf.text(customTitle, pdfWidth / 2, yPos, { align: 'center' });
+    yPos += 8;
+
+    // Subtitle
+    if (customSubtitle) {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      pdf.setTextColor(80, 80, 80);
+      const lines = pdf.splitTextToSize(customSubtitle, pdfWidth - 40);
+      for (const line of lines) {
+        pdf.text(line, pdfWidth / 2, yPos, { align: 'center' });
+        yPos += 5;
+      }
+    }
+
+    return yPos;
+  };
+
+  const drawCustomFooter = (pdf: jsPDF, pdfWidth: number, pdfHeight: number) => {
+    let yPos = pdfHeight - 20;
+
+    if (customFooter) {
+      pdf.setFontSize(8);
+      pdf.setTextColor(80, 80, 80);
+      const lines = pdf.splitTextToSize(customFooter, pdfWidth - 40);
+      for (const line of lines) {
+        pdf.text(line, pdfWidth / 2, yPos, { align: 'center' });
+        yPos += 4;
+      }
+      yPos += 2;
+    }
+
+    pdf.setFontSize(7);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text('Prayer times data provided by AlAdhan API (aladhan.com)', pdfWidth / 2, yPos, { align: 'center' });
+    yPos += 5;
+    pdf.setTextColor(26, 71, 55);
+    pdf.textWithLink('syedha.com/prayertimes', pdfWidth / 2 - 12, yPos, { url: 'https://syedha.com/prayertimes' });
+    yPos += 5;
+    pdf.setTextColor(150, 150, 150);
+    pdf.text(`Generated on ${new Date().toLocaleDateString()}`, pdfWidth / 2, yPos, { align: 'center' });
+  };
+
+  const doExportCalendar = async () => {
     setIsExportingCalendar(true);
     toast.loading('Generating Calendar PDF...', { id: 'export-calendar' });
 
     try {
       const rawDays = getMonthDays(hijriYear, hijriMonth, method);
       const days = getAdjustedDays(rawDays);
-      const methodLabel = CALCULATION_METHODS.find(m => m.value === method)?.label || method;
-      const { cityName: fallbackCity } = await getLocationInfo(userLocation);
-      const displayCity = cityLabel || fallbackCity;
 
       const pdf = new jsPDF({
         orientation: 'landscape',
@@ -116,21 +205,8 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      // Header
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(20);
-      pdf.setTextColor(26, 71, 55);
-      pdf.text(`${HIJRI_MONTHS[hijriMonth - 1]} ${hijriYear} AH`, pdfWidth / 2, 18, { align: 'center' });
-
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(10);
-      pdf.setTextColor(100, 100, 100);
-      pdf.text(`Calculation Method: ${methodLabel}`, pdfWidth / 2, 26, { align: 'center' });
-
-      // City name
-      pdf.setFontSize(10);
-      pdf.setTextColor(80, 80, 80);
-      pdf.text(`Location: ${displayCity}`, pdfWidth / 2, 32, { align: 'center' });
+      // Custom header
+      let contentTop = drawCustomHeader(pdf, pdfWidth);
 
       // Gregorian span
       if (days.length > 0) {
@@ -138,14 +214,16 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
         const lastDate = days[days.length - 1].gregorianDate;
         const firstMonth = GREGORIAN_MONTHS[firstDate.getMonth()];
         const lastMonth = GREGORIAN_MONTHS[lastDate.getMonth()];
-        let span = firstMonth === lastMonth ? `${firstMonth} ${firstDate.getFullYear()}` : `${firstMonth} - ${lastMonth} ${firstDate.getFullYear()}`;
+        const span = firstMonth === lastMonth ? `${firstMonth} ${firstDate.getFullYear()}` : `${firstMonth} - ${lastMonth} ${firstDate.getFullYear()}`;
         pdf.setFontSize(9);
-        pdf.text(span, pdfWidth / 2, 38, { align: 'center' });
+        pdf.setTextColor(100, 100, 100);
+        pdf.text(span, pdfWidth / 2, contentTop, { align: 'center' });
+        contentTop += 6;
       }
 
       // Calendar grid settings
       const marginLeft = 15;
-      const marginTop = 46;
+      const marginTop = contentTop + 2;
       const cellWidth = (pdfWidth - 30) / 7;
       const cellHeight = 18;
 
@@ -172,7 +250,6 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
         const y = marginTop + 12 + row * cellHeight;
         const isFriday = day.gregorianDate.getDay() === 5;
 
-        // Cell background
         if (day.isToday) {
           pdf.setFillColor(26, 71, 55);
           pdf.roundedRect(x + 1, y, cellWidth - 2, cellHeight - 2, 2, 2, 'F');
@@ -185,12 +262,10 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
           pdf.setTextColor(30, 30, 30);
         }
 
-        // Hijri day
         pdf.setFont('helvetica', 'bold');
         pdf.setFontSize(14);
         pdf.text(String(day.hijriDay), x + cellWidth / 2, y + 8, { align: 'center' });
 
-        // Gregorian date
         pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(8);
         if (day.isToday) {
@@ -208,16 +283,10 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
         }
       });
 
-      // Footer with credits
-      pdf.setFontSize(7);
-      pdf.setTextColor(100, 100, 100);
-      pdf.text('Prayer times data provided by AlAdhan API (aladhan.com)', pdfWidth / 2, pdfHeight - 14, { align: 'center' });
-      pdf.setTextColor(26, 71, 55);
-      pdf.textWithLink('syedha.com/prayertimes', pdfWidth / 2 - 12, pdfHeight - 9, { url: 'https://syedha.com/prayertimes' });
-      pdf.setTextColor(150, 150, 150);
-      pdf.text(`Generated on ${new Date().toLocaleDateString()}`, pdfWidth / 2, pdfHeight - 4, { align: 'center' });
+      // Custom footer
+      drawCustomFooter(pdf, pdfWidth, pdfHeight);
 
-      const fileName = `hijri-calendar-${HIJRI_MONTHS[hijriMonth - 1].toLowerCase()}-${hijriYear}.pdf`;
+      const fileName = `hijri-calendar-${monthName.toLowerCase()}-${hijriYear}.pdf`;
       pdf.save(fileName);
 
       toast.success('Calendar PDF downloaded!', { id: 'export-calendar' });
@@ -229,7 +298,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
     }
   };
 
-  const handleExportPrayerTimes = async () => {
+  const doExportPrayerTimes = async () => {
     setIsExportingPrayer(true);
     toast.loading('Generating Prayer Times PDF...', { id: 'export-prayer' });
 
@@ -237,42 +306,25 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
       const rawDays = getMonthDays(hijriYear, hijriMonth, method);
       const days = getAdjustedDays(rawDays);
       const prayerMethodToUse = prayerMethod ?? (method as any);
-      const methodLabel = PRAYER_METHODS[prayerMethodToUse as PrayerMethod]?.name ??
-        CALCULATION_METHODS.find(m => m.value === method)?.label ??
-        String(prayerMethodToUse);
-      const { latitude, longitude, cityName: fallbackCity } = await getLocationInfo(userLocation);
-      const displayCity = cityLabel || fallbackCity;
+      const { latitude, longitude } = await getLocationInfo(userLocation);
 
-      // Letter size portrait
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'letter',
       });
 
-      const pdfWidth = pdf.internal.pageSize.getWidth(); // 215.9mm
-      const pdfHeight = pdf.internal.pageSize.getHeight(); // 279.4mm
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      // Header
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(18);
-      pdf.setTextColor(26, 71, 55);
-      pdf.text(`Prayer Times - ${HIJRI_MONTHS[hijriMonth - 1]} ${hijriYear} AH`, pdfWidth / 2, 18, { align: 'center' });
+      // Custom header
+      let contentTop = drawCustomHeader(pdf, pdfWidth);
+      contentTop += 4;
 
-      // City name and method
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(11);
-      pdf.setTextColor(80, 80, 80);
-      pdf.text(`Location: ${displayCity}`, pdfWidth / 2, 26, { align: 'center' });
-
-      pdf.setFontSize(9);
-      pdf.setTextColor(100, 100, 100);
-      pdf.text(`Calculation Method: ${methodLabel}`, pdfWidth / 2, 32, { align: 'center' });
-
-      // Table settings - Letter portrait has more vertical space
+      // Table settings
       const tableMarginLeft = 12;
-      const tableTop = 40;
-      const colWidths = [26, 22, 26, 26, 26, 26, 26, 26]; // Slightly wider for AM/PM
+      const tableTop = contentTop;
+      const colWidths = [26, 22, 26, 26, 26, 26, 26, 26];
       const rowHeight = 7;
       const headers = ['Gregorian', 'Hijri', 'Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
@@ -294,11 +346,11 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
 
       for (const day of days) {
         try {
-            const times = await fetchPrayerTimesFromAladhan({
-              date: day.gregorianDate,
-              location: { latitude, longitude },
-              method: prayerMethodToUse as any,
-            });
+          const times = await fetchPrayerTimesFromAladhan({
+            date: day.gregorianDate,
+            location: { latitude, longitude },
+            method: prayerMethodToUse as any,
+          });
           prayerTimesData.push({ date: day.gregorianDate, hijriDay: day.hijriDay, times });
         } catch {
           prayerTimesData.push({ date: day.gregorianDate, hijriDay: day.hijriDay, times: null });
@@ -313,7 +365,6 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
         const y = tableTop + rowHeight + 1 + index * rowHeight;
         const isFriday = dayData.date.getDay() === 5;
 
-        // Row backgrounds: yellow for Fridays, alternating gray for others
         if (isFriday) {
           pdf.setFillColor(252, 248, 230);
           pdf.rect(tableMarginLeft, y, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
@@ -325,37 +376,24 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
         pdf.setTextColor(30, 30, 30);
         let x = tableMarginLeft;
 
-        // Gregorian date
         const gregDate = `${dayData.date.getDate()} ${GREGORIAN_MONTHS[dayData.date.getMonth()].slice(0, 3)} ${dayData.date.getFullYear()}`;
         pdf.text(gregDate, x + colWidths[0] / 2, y + 5, { align: 'center' });
         x += colWidths[0];
 
-        // Hijri date
         pdf.text(`${dayData.hijriDay} ${HIJRI_MONTHS[hijriMonth - 1].slice(0, 3)}`, x + colWidths[1] / 2, y + 5, { align: 'center' });
         x += colWidths[1];
 
         if (dayData.times) {
-          // Fajr
           pdf.text(to12Hour(dayData.times.fajr), x + colWidths[2] / 2, y + 5, { align: 'center' });
           x += colWidths[2];
-
-          // Sunrise
           pdf.text(to12Hour(dayData.times.sunrise), x + colWidths[3] / 2, y + 5, { align: 'center' });
           x += colWidths[3];
-
-          // Dhuhr
           pdf.text(to12Hour(dayData.times.dhuhr), x + colWidths[4] / 2, y + 5, { align: 'center' });
           x += colWidths[4];
-
-          // Asr
           pdf.text(to12Hour(dayData.times.asr), x + colWidths[5] / 2, y + 5, { align: 'center' });
           x += colWidths[5];
-
-          // Maghrib
           pdf.text(to12Hour(dayData.times.maghrib), x + colWidths[6] / 2, y + 5, { align: 'center' });
           x += colWidths[6];
-
-          // Isha
           pdf.text(to12Hour(dayData.times.isha), x + colWidths[7] / 2, y + 5, { align: 'center' });
         } else {
           pdf.setTextColor(150, 150, 150);
@@ -363,16 +401,10 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
         }
       });
 
-      // Footer with credits
-      pdf.setFontSize(7);
-      pdf.setTextColor(100, 100, 100);
-      pdf.text('Prayer times data provided by AlAdhan API (aladhan.com)', pdfWidth / 2, pdfHeight - 16, { align: 'center' });
-      pdf.setTextColor(26, 71, 55);
-      pdf.textWithLink('syedha.com/prayertimes', pdfWidth / 2 - 12, pdfHeight - 11, { url: 'https://syedha.com/prayertimes' });
-      pdf.setTextColor(150, 150, 150);
-      pdf.text(`Generated on ${new Date().toLocaleDateString()}`, pdfWidth / 2, pdfHeight - 6, { align: 'center' });
+      // Custom footer
+      drawCustomFooter(pdf, pdfWidth, pdfHeight);
 
-      const fileName = `prayer-times-${HIJRI_MONTHS[hijriMonth - 1].toLowerCase()}-${hijriYear}.pdf`;
+      const fileName = `prayer-times-${monthName.toLowerCase()}-${hijriYear}.pdf`;
       pdf.save(fileName);
 
       toast.success('Prayer Times PDF downloaded!', { id: 'export-prayer' });
@@ -385,32 +417,90 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
   };
 
   return (
-    <div className="flex gap-2">
-      <Button
-        onClick={handleExportCalendar}
-        disabled={isExportingCalendar || isExportingPrayer}
-        variant="outline"
-        className="gap-2 border-primary/30 hover:bg-primary/10 transition-all duration-300"
-      >
-        {isExportingCalendar ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Calendar className="h-4 w-4" />
-        )}
-        Calendar
-      </Button>
-      <Button
-        onClick={handleExportPrayerTimes}
-        disabled={isExportingCalendar || isExportingPrayer}
-        className="bg-primary hover:bg-emerald-dark text-primary-foreground gap-2 shadow-soft hover:shadow-gold transition-all duration-300"
-      >
-        {isExportingPrayer ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Clock className="h-4 w-4" />
-        )}
-        Prayer Times
-      </Button>
-    </div>
+    <>
+      <div className="flex gap-2">
+        <Button
+          onClick={() => openDialog('calendar')}
+          disabled={isExportingCalendar || isExportingPrayer}
+          variant="outline"
+          className="gap-2 border-primary/30 hover:bg-primary/10 transition-all duration-300"
+        >
+          {isExportingCalendar ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Calendar className="h-4 w-4" />
+          )}
+          Calendar
+        </Button>
+        <Button
+          onClick={() => openDialog('prayer')}
+          disabled={isExportingCalendar || isExportingPrayer}
+          className="bg-primary hover:bg-emerald-dark text-primary-foreground gap-2 shadow-soft hover:shadow-gold transition-all duration-300"
+        >
+          {isExportingPrayer ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Clock className="h-4 w-4" />
+          )}
+          Prayer Times
+        </Button>
+      </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-md border-border/50 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display text-primary text-xl">
+              Customize {exportType === 'calendar' ? 'Calendar' : 'Prayer Times'} PDF
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label htmlFor="pdf-title" className="text-sm font-medium">Title</Label>
+              <Input
+                id="pdf-title"
+                value={customTitle}
+                onChange={(e) => setCustomTitle(e.target.value)}
+                placeholder="PDF title"
+                className="bg-background/60 rounded-xl mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="pdf-subtitle" className="text-sm font-medium">Subtitle</Label>
+              <Input
+                id="pdf-subtitle"
+                value={customSubtitle}
+                onChange={(e) => setCustomSubtitle(e.target.value)}
+                placeholder="Location, method, or other details"
+                className="bg-background/60 rounded-xl mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="pdf-footer" className="text-sm font-medium">
+                Custom Footer <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Textarea
+                id="pdf-footer"
+                value={customFooter}
+                onChange={(e) => setCustomFooter(e.target.value)}
+                placeholder="e.g. Mosque name, organization, notes..."
+                rows={2}
+                className="bg-background/60 rounded-xl mt-1.5 resize-none"
+              />
+            </div>
+
+            <Button
+              onClick={handleExport}
+              className="w-full bg-gradient-to-r from-primary to-emerald-dark hover:opacity-90 rounded-xl shadow-lg gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export PDF
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
