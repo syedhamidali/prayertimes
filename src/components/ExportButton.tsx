@@ -296,6 +296,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
   const [lines, setLines] = useState<PdfLine[]>([]);
   const [showQuranVerse, setShowQuranVerse] = useState(true);
   const [showDefaultFooter, setShowDefaultFooter] = useState(true);
+  const [dateAdjustment, setDateAdjustment] = useState(0);
 
   const monthName = HIJRI_MONTHS[hijriMonth - 1];
 
@@ -321,6 +322,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
     ]);
     setShowQuranVerse(true);
     setShowDefaultFooter(true);
+    setDateAdjustment(0);
     setDialogOpen(true);
   };
 
@@ -363,16 +365,30 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
   };
 
   const getAuthorativeDays = async (): Promise<HijriCalendarDay[]> => {
+    let days: HijriCalendarDay[];
     try {
-      return await fetchHijriMonthCalendar(hijriMonth, hijriYear);
+      days = await fetchHijriMonthCalendar(hijriMonth, hijriYear);
     } catch {
       const localDays = getMonthDays(hijriYear, hijriMonth, method);
-      return localDays.map(d => ({
+      days = localDays.map(d => ({
         hijriDay: d.hijriDay,
         gregorianDate: d.gregorianDate,
         isToday: d.isToday,
       }));
     }
+
+    if (dateAdjustment !== 0) {
+      const deltaMs = dateAdjustment * 24 * 60 * 60 * 1000;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      days = days.map(d => {
+        const g = new Date(d.gregorianDate.getTime() + deltaMs);
+        g.setHours(0, 0, 0, 0);
+        return { ...d, gregorianDate: g, isToday: g.getTime() === today.getTime() };
+      });
+    }
+
+    return days;
   };
 
   // --- PDF drawing helpers ---
@@ -782,6 +798,40 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
                     AlAdhan credit, syedha.com link, generation date
                   </span>
                 </label>
+              </div>
+
+              {/* Hijri date adjustment */}
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/40 border border-border/30">
+                <div className="flex-1">
+                  <span className="text-sm font-semibold text-foreground block">Hijri Date Adjustment</span>
+                  <span className="text-xs text-muted-foreground">
+                    Shift Gregorian dates if they don't match your local sighting
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setDateAdjustment(prev => prev - 1)}
+                    className="h-7 w-7 rounded-lg text-xs"
+                  >
+                    −
+                  </Button>
+                  <span className={cn(
+                    "w-10 text-center text-sm font-mono font-semibold",
+                    dateAdjustment === 0 ? "text-muted-foreground" : dateAdjustment > 0 ? "text-primary" : "text-destructive"
+                  )}>
+                    {dateAdjustment > 0 ? `+${dateAdjustment}` : dateAdjustment}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setDateAdjustment(prev => prev + 1)}
+                    className="h-7 w-7 rounded-lg text-xs"
+                  >
+                    +
+                  </Button>
+                </div>
               </div>
 
               <div className="flex items-center justify-between">
