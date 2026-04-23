@@ -635,7 +635,7 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
       const scaledCols = colWidths.map(w => w * colScale);
       const rowHeight = 6.5;
       const headerRowH = 8;
-      const headers = ['Gregorian', 'Hijri', 'Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+      const headers = ['Gregorian', monthName, 'Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
       // Header row
       pdf.setFillColor(26, 71, 55);
@@ -690,11 +690,8 @@ export function ExportButton({ hijriYear, hijriMonth, method, userLocation, pray
         // Hijri
         pdf.setTextColor(26, 71, 55);
         pdf.setFont('helvetica', 'bold');
-        pdf.text(`${dayData.hijriDay}`, x + scaledCols[1] / 2 - 4, y + 4.5, { align: 'center' });
+        pdf.text(`${dayData.hijriDay}`, x + scaledCols[1] / 2, y + 4.5, { align: 'center' });
         pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(80, 80, 80);
-        pdf.setFontSize(7);
-        pdf.text(HIJRI_MONTHS[hijriMonth - 1].slice(0, 3), x + scaledCols[1] / 2 + 5, y + 4.5, { align: 'center' });
         pdf.setFontSize(8);
         x += scaledCols[1];
 
