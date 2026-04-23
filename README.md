@@ -1,73 +1,177 @@
-# Welcome to your Lovable project
+# Muslim Prayer Times & Hijri Calendar
 
-## Project info
+A modern web application for accurate Islamic prayer times, Hijri calendar display, and Islamic event tracking — with PDF export support including Arabic text rendering.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+**Live:** [syedha.com/prayertimes](https://syedha.com/prayertimes)
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## Features
 
-**Use Lovable**
+### Prayer Times
+- Six daily prayers: Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha
+- **19 calculation methods** including Jafari (Shia Ithna-Ashari), Leva Research Institute (Qom), ISNA, MWL, Umm al-Qura, Tehran, and regional variants
+- Location-aware via GPS, IP geolocation, interactive map, or manual coordinates
+- Current prayer highlighting with countdown
+- 12-hour / 24-hour format toggle
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### Hijri Calendar
+- Full month grid with Hijri and Gregorian dates side by side
+- Multiple Hijri calculation methods (Leva, Jafari, Shafi, Hanafi, Maliki, Hanbali, Umm al-Qura, ISNA)
+- Gregorian dates sourced from [AlAdhan API](https://aladhan.com) for accurate Hijri-Gregorian alignment
+- Month/year navigation with "Today" button
 
-Changes made via Lovable will be committed automatically to this repo.
+### Islamic Events
+- 80+ important Islamic dates sourced from SIA ToolKit
+- Color-coded by type: martyrdom (red), wiladat/birth (green), victory/event (amber)
+- Click any event day on the calendar to see details
+- Events included in PDF exports
 
-**Use your preferred IDE**
+### PDF Export
+- Export calendar or prayer times as professionally formatted PDFs
+- **Arabic text rendering** via canvas-based approach with Amiri font
+- Qur'an 4:103 verse header (toggleable)
+- Dynamic multi-line editor with per-line controls:
+  - Font size (8–28pt), color (picker + presets), bold/italic
+  - Header or footer positioning
+- Live preview before exporting
+- Toggleable default footer (AlAdhan credit, syedha.com link, generation date)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### UI/UX
+- Responsive design optimized for mobile and desktop
+- Light and dark theme support
+- Islamic geometric pattern backgrounds
+- Toast notifications for user feedback
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## Tech Stack
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+| Layer | Technology |
+|-------|-----------|
+| Framework | React 18 + TypeScript |
+| Build | Vite 5 (SWC) |
+| Styling | Tailwind CSS 3 + shadcn/ui |
+| Routing | React Router 6 (HashRouter) |
+| State | TanStack React Query |
+| Maps | Leaflet + React Leaflet |
+| PDF | jsPDF |
+| Arabic Font | Amiri (Google Fonts + local fallback) |
+| Deployment | GitHub Pages |
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+---
 
-# Step 3: Install the necessary dependencies.
-npm i
+## External APIs
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+| API | Purpose |
+|-----|---------|
+| [AlAdhan](https://aladhan.com) | Prayer times calculation and Hijri calendar |
+| [BigDataCloud](https://www.bigdatacloud.com) | Reverse geocoding from coordinates |
+| [ipapi.co](https://ipapi.co) | IP-based location detection |
+| [OpenStreetMap Nominatim](https://nominatim.openstreetmap.org) | Reverse geocoding for map |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+ and npm ([install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
+
+### Development
+
+```bash
+git clone https://github.com/syedhamidali/prayertimes.git
+cd prayertimes
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The dev server starts at `http://localhost:8080`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Production Build
 
-**Use GitHub Codespaces**
+```bash
+npm run build
+npm run preview
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+The build output is in the `dist/` directory.
 
-## What technologies are used for this project?
+---
 
-This project is built with:
+## Project Structure
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```
+src/
+├── components/
+│   ├── CalendarGrid.tsx      # Hijri month grid with events
+│   ├── CalendarHeader.tsx    # Month/year navigation
+│   ├── ExportButton.tsx      # PDF export dialog with customization
+│   ├── PrayerTimesCard.tsx   # Daily prayer times display
+│   ├── LocationMap.tsx       # Interactive Leaflet map
+│   ├── MethodSelector.tsx    # Calculation method picker
+│   ├── YearSelector.tsx      # Year/month controls
+│   └── ui/                   # shadcn/ui component library
+├── lib/
+│   ├── prayerTimes.ts        # Prayer calculation methods & types
+│   ├── hijriUtils.ts         # Hijri-Gregorian conversion (Julian Day)
+│   ├── aladhanApi.ts         # AlAdhan API client
+│   ├── arabicPdf.ts          # Canvas-based Arabic PDF rendering
+│   ├── islamicEvents.ts      # 80+ Islamic events database
+│   └── solar.ts              # Solar position calculations
+├── pages/
+│   ├── Index.tsx              # Main application page
+│   └── NotFound.tsx           # 404 page
+└── hooks/
+    ├── use-mobile.tsx         # Responsive breakpoint hook
+    └── use-toast.ts           # Toast notification hook
+```
 
-## How can I deploy this project?
+---
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Deployment
 
-## Can I connect a custom domain to my Lovable project?
+The app deploys automatically to GitHub Pages on push to `main` via the workflow in `.github/workflows/deploy.yml`.
 
-Yes, you can!
+The Vite config uses a relative base path (`./`) so it works on any GitHub Pages subpath without configuration.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+---
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Calculation Methods
+
+The app supports these prayer time calculation methods:
+
+| Method | Region / Authority |
+|--------|--------------------|
+| Leva Research Institute (Qom) | Iran / Shia |
+| Shia Ithna-Ashari (Jafari) | General Shia |
+| Jafari (Karachi) | Pakistan / Shia |
+| University of Tehran | Iran |
+| ISNA | North America |
+| Muslim World League | Global |
+| Umm al-Qura | Saudi Arabia |
+| Egyptian General Authority | Egypt |
+| Gulf Region | UAE, Oman |
+| Kuwait | Kuwait |
+| Qatar | Qatar |
+| Singapore | Southeast Asia |
+| France | Europe |
+| Turkey (Diyanet) | Turkey |
+| Russia | Russia |
+| Shafi / Maliki / Hanbali / Hanafi | Fiqh-based |
+
+---
+
+## License
+
+This project is open source.
+
+---
+
+## Credits
+
+- Prayer times data by [AlAdhan API](https://aladhan.com)
+- Islamic events sourced from [SIA ToolKit](https://github.com/AliHaider0343/SIA-ToolKit)
+- Arabic font: [Amiri](https://github.com/aliftype/amiri) by Khaled Hosny
+- UI components: [shadcn/ui](https://ui.shadcn.com)
