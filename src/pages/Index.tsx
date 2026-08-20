@@ -6,7 +6,7 @@ import { ExportButton } from '@/components/ExportButton';
 import { PrayerTimesCard } from '@/components/PrayerTimesCard';
 import { getCurrentHijriDate, CalculationMethod, formatHijriDate, hijriToGregorian, HIJRI_MONTHS } from '@/lib/hijriUtils';
 import type { Location as PrayerLocation, PrayerMethod } from '@/lib/prayerTimes';
-import { getTimezoneFromLongitude } from '@/lib/prayerTimes';
+import { getTimezoneFromLongitude, getPreciseCoords } from '@/lib/prayerTimes';
 import type { AladhanHijriDate } from '@/lib/aladhanApi';
 import { Moon, Star, MapPin, Minus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
