@@ -313,45 +313,75 @@ export function formatTime12h(time24: string): string {
   return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
 
-// Get user's location using Geolocation API with reverse geocoding
-export async function getUserLocation(): Promise<Location> {
+// Get the most precise GPS fix available.
+// Watches position for a short window and keeps the reading with the best accuracy.
+export function getPreciseCoords(options?: {
+  desiredAccuracy?: number; // metres
+  maxWait?: number; // ms
+}): Promise<GeolocationCoordinates> {
+  const desiredAccuracy = options?.desiredAccuracy ?? 25;
+  const maxWait = options?.maxWait ?? 12000;
+
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error('Geolocation is not supported'));
       return;
     }
-    
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const lat = position.coords.latitude;
-        const lon = position.coords.longitude;
-        
-        // Try to get city name via reverse geocoding
-        let cityName: string | undefined;
-        try {
-          const response = await fetch(
-            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
-          );
-          const data = await response.json();
-          cityName = data.city || data.locality || data.principalSubdivision;
-        } catch {
-          // Continue without city name if geocoding fails
+
+    let best: GeolocationCoordinates | null = null;
+    let done = false;
+
+    const finish = (err?: unknown) => {
+      if (done) return;
+      done = true;
+      navigator.geolocation.clearWatch(watchId);
+      clearTimeout(timer);
+      if (best) resolve(best);
+      else reject(err instanceof Error ? err : new Error('Unable to determine location'));
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const acc = pos.coords.accuracy ?? Number.POSITIVE_INFINITY;
+        if (!best || acc < (best.accuracy ?? Number.POSITIVE_INFINITY)) {
+          best = pos.coords;
         }
-        
-        resolve({
-          latitude: lat,
-          longitude: lon,
-          city: cityName,
-          timezone: getTimezoneFromLongitude(lon),
-        });
+        if (acc <= desiredAccuracy) finish();
       },
-      (error) => {
-        reject(error);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
+      (error) => finish(error),
+      { enableHighAccuracy: true, timeout: maxWait, maximumAge: 0 }
     );
+
+    const timer = setTimeout(() => finish(new Error('Location timeout')), maxWait);
   });
 }
+
+// Get user's location using Geolocation API with reverse geocoding
+export async function getUserLocation(): Promise<Location> {
+  const coords = await getPreciseCoords();
+  const lat = coords.latitude;
+  const lon = coords.longitude;
+
+  // Try to get city name via reverse geocoding
+  let cityName: string | undefined;
+  try {
+    const response = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+    );
+    const data = await response.json();
+    cityName = data.city || data.locality || data.principalSubdivision;
+  } catch {
+    // Continue without city name if geocoding fails
+  }
+
+  return {
+    latitude: lat,
+    longitude: lon,
+    city: cityName,
+    timezone: getTimezoneFromLongitude(lon),
+  };
+}
+
 
 // Default locations for common cities with proper timezones
 export const DEFAULT_LOCATIONS: Record<string, Location> = {

@@ -6,7 +6,7 @@ import { ExportButton } from '@/components/ExportButton';
 import { PrayerTimesCard } from '@/components/PrayerTimesCard';
 import { getCurrentHijriDate, CalculationMethod, formatHijriDate, hijriToGregorian, HIJRI_MONTHS } from '@/lib/hijriUtils';
 import type { Location as PrayerLocation, PrayerMethod } from '@/lib/prayerTimes';
-import { getTimezoneFromLongitude } from '@/lib/prayerTimes';
+import { getTimezoneFromLongitude, getPreciseCoords } from '@/lib/prayerTimes';
 import type { AladhanHijriDate } from '@/lib/aladhanApi';
 import { Moon, Star, MapPin, Minus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -49,12 +49,12 @@ const Index = () => {
 
   // Get location and initialize with current Hijri date
   useEffect(() => {
-    // Try to get device location first
+    // Try to get device location first (highest precision GPS fix available)
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
+      getPreciseCoords()
+        .then(async (coords) => {
           try {
-            const { latitude, longitude, accuracy } = position.coords;
+            const { latitude, longitude, accuracy } = coords;
             logVisit({ latitude, longitude, accuracy });
             const tz = getTimezoneFromLongitude(longitude);
             setTimezoneOffset(tz);
@@ -81,8 +81,9 @@ const Index = () => {
             setHijriMonth(current.month);
             setLocation({ loading: false });
           }
-        },
-        async () => {
+        })
+        .catch(async () => {
+
           logVisit();
           // Fallback to IP-based location
           try {
@@ -109,8 +110,8 @@ const Index = () => {
             setHijriMonth(current.month);
             setLocation({ loading: false });
           }
-        }
-      );
+        });
+
     } else {
       logVisit();
       // No geolocation, use IP-based
