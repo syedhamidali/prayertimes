@@ -14,7 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      visitor_logs: {
+        Row: {
+          accuracy: number | null
+          city: string | null
+          country: string | null
+          created_at: string
+          id: string
+          ip_address: string | null
+          language: string | null
+          latitude: number | null
+          location_granted: boolean
+          longitude: number | null
+          org: string | null
+          page_path: string | null
+          postal: string | null
+          referrer: string | null
+          region: string | null
+          screen_height: number | null
+          screen_width: number | null
+          timezone: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          accuracy?: number | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          language?: string | null
+          latitude?: number | null
+          location_granted?: boolean
+          longitude?: number | null
+          org?: string | null
+          page_path?: string | null
+          postal?: string | null
+          referrer?: string | null
+          region?: string | null
+          screen_height?: number | null
+          screen_width?: number | null
+          timezone?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          accuracy?: number | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          language?: string | null
+          latitude?: number | null
+          location_granted?: boolean
+          longitude?: number | null
+          org?: string | null
+          page_path?: string | null
+          postal?: string | null
+          referrer?: string | null
+          region?: string | null
+          screen_height?: number | null
+          screen_width?: number | null
+          timezone?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
