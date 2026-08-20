@@ -49,12 +49,12 @@ const Index = () => {
 
   // Get location and initialize with current Hijri date
   useEffect(() => {
-    // Try to get device location first
+    // Try to get device location first (highest precision GPS fix available)
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
+      getPreciseCoords()
+        .then(async (coords) => {
           try {
-            const { latitude, longitude, accuracy } = position.coords;
+            const { latitude, longitude, accuracy } = coords;
             logVisit({ latitude, longitude, accuracy });
             const tz = getTimezoneFromLongitude(longitude);
             setTimezoneOffset(tz);
@@ -81,8 +81,9 @@ const Index = () => {
             setHijriMonth(current.month);
             setLocation({ loading: false });
           }
-        },
-        async () => {
+        })
+        .catch(async () => {
+
           logVisit();
           // Fallback to IP-based location
           try {
