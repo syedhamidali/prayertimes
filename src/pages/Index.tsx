@@ -110,8 +110,8 @@ const Index = () => {
             setHijriMonth(current.month);
             setLocation({ loading: false });
           }
-        }
-      );
+        });
+
     } else {
       logVisit();
       // No geolocation, use IP-based
