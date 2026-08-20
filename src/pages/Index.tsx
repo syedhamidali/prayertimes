@@ -11,6 +11,7 @@ import type { AladhanHijriDate } from '@/lib/aladhanApi';
 import { Moon, Star, MapPin, Minus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { logVisit } from '@/lib/visitorLog';
 
 function parseUtcOffset(offset: string): number {
   const sign = offset[0] === '-' ? -1 : 1;
@@ -53,7 +54,8 @@ const Index = () => {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           try {
-            const { latitude, longitude } = position.coords;
+            const { latitude, longitude, accuracy } = position.coords;
+            logVisit({ latitude, longitude, accuracy });
             const tz = getTimezoneFromLongitude(longitude);
             setTimezoneOffset(tz);
             
@@ -81,6 +83,7 @@ const Index = () => {
           }
         },
         async () => {
+          logVisit();
           // Fallback to IP-based location
           try {
             const response = await fetch('https://ipapi.co/json/');
@@ -109,6 +112,7 @@ const Index = () => {
         }
       );
     } else {
+      logVisit();
       // No geolocation, use IP-based
       fetch('https://ipapi.co/json/')
         .then(res => res.json())
